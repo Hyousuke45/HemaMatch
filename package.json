@@ -1,0 +1,25 @@
+{
+  "name": "HemaMatch",
+  "description": "HemaMatch - Blood Donation and Matching Web Application (academic MVP)",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --port 3000 --host --strictPort 2>&1 | tee dev.log",
+    "build": "vite build",
+    "preview": "vite preview --port 3000 --host",
+    "db:push": "echo '[HemaMatch] Phase 1 uses mock data - nothing to push. Phase 2: this script will be replaced by Supabase migrations.'"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.58.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "react-router-dom": "^6.30.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.1.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "tailwindcss": "^4.1.0",
+    "vite": "^6.3.5"
+  }
+}

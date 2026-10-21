@@ -1,0 +1,25 @@
+# HemaMatch - academic blood donation & matching MVP
+
+# dependencies
+node_modules/
+
+# build output
+dist/
+
+# local dev artifacts
+dev.log
+nohup.out
+*.pid
+
+# environment - never commit secrets
+.env
+.env.local
+
+# platform internals
+.zscripts/
+.next/
+db/
+mini-services/
+
+# OS junk
+.DS_Store
