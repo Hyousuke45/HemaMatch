@@ -11,7 +11,7 @@
     "db:push": "echo '[HemaMatch] Phase 1 uses mock data - nothing to push. Phase 2: this script will be replaced by Supabase migrations.'"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.58.0",
+    "@supabase/supabase-js": "^2.118.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-router-dom": "^6.30.0"
