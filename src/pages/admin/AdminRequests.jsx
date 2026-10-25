@@ -86,7 +86,7 @@ export default function AdminRequests() {
         <div className="card overflow-x-auto">
           <table className="w-full min-w-[820px] text-sm">
             <thead>
-              <tr className="border-b border-gray-200 text-left text-xs uppercase tracking-wide text-gray-400">
+              <tr className="border-b border-cream/15 text-left text-xs uppercase tracking-wide text-cream/45">
                 <th className="px-4 py-3">Type</th>
                 <th className="px-4 py-3">Requester</th>
                 <th className="px-4 py-3">Region</th>
@@ -96,21 +96,21 @@ export default function AdminRequests() {
                 <th className="px-4 py-3">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-cream/10">
               {data.map((r) => (
-                <tr key={r.id} className="hover:bg-gray-50">
+                <tr key={r.id} className="hover:bg-cream/5">
                   <td className="px-4 py-3">
                     <BloodTypeBadge type={r.blood_type} />
                   </td>
-                  <td className="px-4 py-3 font-medium text-gray-900">{r.requester_name}</td>
-                  <td className="px-4 py-3 text-gray-600">{r.region}</td>
+                  <td className="px-4 py-3 font-medium text-cream">{r.requester_name}</td>
+                  <td className="px-4 py-3 text-cream/75">{r.region}</td>
                   <td className="px-4 py-3">
                     <StatusBadge status={r.urgency} />
                   </td>
                   <td className="px-4 py-3">
                     <StatusBadge status={r.status} />
                   </td>
-                  <td className="px-4 py-3 text-gray-500">{formatDate(r.created_at)}</td>
+                  <td className="px-4 py-3 text-cream/65">{formatDate(r.created_at)}</td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-1.5">
                       <Link to={`/requests/${r.id}`} className="btn-secondary !px-2.5 !py-1 !text-xs">

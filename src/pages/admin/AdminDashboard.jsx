@@ -18,7 +18,7 @@ export default function AdminDashboard() {
     <div className="flex flex-col gap-6">
       {/* People */}
       <section>
-        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-400">
+        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-cream/45">
           Accounts
         </h2>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -31,7 +31,7 @@ export default function AdminDashboard() {
 
       {/* Requests */}
       <section>
-        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-400">
+        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-cream/45">
           Donation requests
         </h2>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
@@ -53,7 +53,7 @@ export default function AdminDashboard() {
 
       {/* Records */}
       <section>
-        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-400">
+        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-cream/45">
           Outcome records
         </h2>
         <div className="grid gap-4 sm:grid-cols-3">
@@ -65,7 +65,7 @@ export default function AdminDashboard() {
 
       {/* Recent activity */}
       <section>
-        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-400">
+        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-cream/45">
           Recent administrative activity
         </h2>
         {logsLoading && <InlineLoader label="Loading activity…" />}
@@ -73,18 +73,18 @@ export default function AdminDashboard() {
           <EmptyState title="No activity yet" message="Important changes will be logged here." />
         )}
         {!logsLoading && logs?.length > 0 && (
-          <div className="card divide-y divide-gray-100">
+          <div className="card divide-y divide-cream/10">
             {logs.slice(0, 6).map((l) => (
               <div key={l.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3 text-sm">
-                <span className="font-mono text-xs font-semibold text-red-700">{l.action}</span>
-                <span className="text-gray-700">{l.details}</span>
-                <span className="ml-auto text-xs text-gray-400">
+                <span className="font-mono text-xs font-semibold text-gold-light">{l.action}</span>
+                <span className="text-cream/85">{l.details}</span>
+                <span className="ml-auto text-xs text-cream/45">
                   {l.actor_name} · {formatDateTime(l.created_at)}
                 </span>
               </div>
             ))}
             <div className="px-4 py-2.5">
-              <Link to="/admin/logs" className="text-sm font-medium text-red-600 hover:underline">
+              <Link to="/admin/logs" className="text-sm font-medium text-gold hover:underline">
                 View full activity log &rarr;
               </Link>
             </div>

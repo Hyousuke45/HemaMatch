@@ -3,10 +3,13 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Alert } from '../components/ui';
 import { isValidEmail, validatePassword } from '../lib/utils';
+import dataService, { isMock } from '../lib/dataService';
 
-// Registration + simulated email verification.
-// Email verification is ENABLED in this project: in Phase 1 the "email link"
-// is simulated with a button; in Phase 2 Supabase sends the real email.
+// Registration + email verification.
+// Email verification is ENABLED in this project:
+//   - mock mode    : the "email link" is simulated with a button.
+//   - Supabase mode: Supabase sends the REAL confirmation email; this page
+//                    then offers a resend and a path back to sign-in.
 export default function Register() {
   const { register, verifyEmail, login } = useAuth();
   const navigate = useNavigate();
@@ -14,8 +17,9 @@ export default function Register() {
   const [form, setForm] = useState({ full_name: '', email: '', password: '', confirm: '' });
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
-  const [stage, setStage] = useState('form'); // form -> check_email -> done
+  const [stage, setStage] = useState('form'); // form -> check_email
   const [verifyError, setVerifyError] = useState(null);
+  const [resent, setResent] = useState(false);
 
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
 
@@ -39,7 +43,7 @@ export default function Register() {
     }
   };
 
-  // Simulates clicking the link in the verification email, then signs in.
+  // Mock mode only: simulates clicking the link in the verification email.
   const handleSimulateVerify = async () => {
     setVerifyError(null);
     setBusy(true);
@@ -54,41 +58,77 @@ export default function Register() {
     }
   };
 
+  // Supabase mode: re-send the real confirmation email.
+  const handleResend = async () => {
+    setVerifyError(null);
+    setBusy(true);
+    try {
+      await verifyEmail(form.email);
+      setResent(true);
+    } catch (err) {
+      setVerifyError(err?.message || 'Could not resend the email.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
   if (stage === 'check_email') {
     return (
       <div className="mx-auto max-w-md py-6">
         <div className="card p-6">
-          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-green-100">
-            <svg className="h-6 w-6 text-green-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-400/15">
+            <svg className="h-6 w-6 text-emerald-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
             </svg>
           </div>
-          <h1 className="mt-4 text-xl font-bold text-gray-900">Verify your email</h1>
-          <p className="mt-2 text-sm leading-relaxed text-gray-600">
-            We sent a verification link to <span className="font-semibold">{form.email}</span>.
+          <h1 className="mt-4 text-xl font-bold text-cream">Verify your email</h1>
+          <p className="mt-2 text-sm leading-relaxed text-cream/75">
+            We sent a confirmation link to <span className="font-semibold">{form.email}</span>.
             Please check your inbox and click the link to activate your account.
           </p>
 
-          <div className="mt-5 rounded-lg border border-dashed border-gray-300 bg-gray-50 p-4">
-            <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
-              Phase 1 simulation (no real email is sent in mock mode)
-            </p>
-            <button
-              type="button"
-              className="btn-primary mt-3 w-full"
-              onClick={handleSimulateVerify}
-              disabled={busy}
-            >
-              {busy ? 'Verifying…' : 'Simulate clicking the verification link'}
-            </button>
-            {verifyError && (
-              <p className="mt-2 text-sm font-medium text-red-600">{verifyError}</p>
-            )}
-          </div>
+          {isMock ? (
+            <div className="card-well mt-5 p-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-cream/45">
+                Mock mode simulation (no real email is sent)
+              </p>
+              <button
+                type="button"
+                className="btn-primary mt-3 w-full"
+                onClick={handleSimulateVerify}
+                disabled={busy}
+              >
+                {busy ? 'Verifying…' : 'Simulate clicking the verification link'}
+              </button>
+              {verifyError && (
+                <p className="mt-2 text-sm font-medium text-red-400">{verifyError}</p>
+              )}
+            </div>
+          ) : (
+            <div className="mt-5 space-y-3">
+              {resent && (
+                <Alert tone="success" title="Confirmation email sent">
+                  Check your inbox (and spam folder) for the new link. Supabase limits how many
+                  emails can be sent per hour — if it does not arrive, wait a few minutes.
+                </Alert>
+              )}
+              <button
+                type="button"
+                className="btn-secondary w-full"
+                onClick={handleResend}
+                disabled={busy || resent}
+              >
+                {busy ? 'Sending…' : resent ? 'Email sent' : 'Resend confirmation email'}
+              </button>
+              {verifyError && (
+                <p className="text-sm font-medium text-red-400">{verifyError}</p>
+              )}
+            </div>
+          )}
 
-          <p className="mt-4 text-sm text-gray-500">
-            Already verified?{' '}
-            <Link to="/login" className="font-medium text-red-600 hover:underline">
+          <p className="mt-4 text-sm text-cream/65">
+            Already confirmed?{' '}
+            <Link to="/login" className="font-medium text-gold hover:underline">
               Sign in
             </Link>
           </p>
@@ -99,8 +139,8 @@ export default function Register() {
 
   return (
     <div className="mx-auto max-w-md py-6">
-      <h1 className="text-2xl font-bold text-gray-900">Create your account</h1>
-      <p className="mt-1 text-sm text-gray-500">
+      <h1 className="text-2xl font-bold text-cream">Create your account</h1>
+      <p className="mt-1 text-sm text-cream/65">
         Every account can both donate blood and request blood.
       </p>
 
@@ -148,7 +188,7 @@ export default function Register() {
             placeholder="At least 8 characters"
             autoComplete="new-password"
           />
-          <p className="mt-1 text-xs text-gray-400">
+          <p className="mt-1 text-xs text-cream/45">
             Minimum 8 characters, with at least one letter and one number.
           </p>
         </div>
@@ -177,15 +217,15 @@ export default function Register() {
           {busy ? 'Creating account…' : 'Create account'}
         </button>
 
-        <p className="text-center text-sm text-gray-500">
+        <p className="text-center text-sm text-cream/65">
           Already have an account?{' '}
-          <Link to="/login" className="font-medium text-red-600 hover:underline">
+          <Link to="/login" className="font-medium text-gold hover:underline">
             Sign in
           </Link>
         </p>
       </form>
 
-      <p className="mt-4 text-center text-xs leading-relaxed text-gray-400">
+      <p className="mt-4 text-center text-xs leading-relaxed text-cream/45">
         By creating an account you understand that HemaMatch is an academic platform and that all
         blood-type matching is preliminary — actual eligibility is decided by healthcare
         professionals.

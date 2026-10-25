@@ -2,8 +2,10 @@ import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Alert } from '../components/ui';
+import { isMock } from '../lib/dataService';
 
-// Quick-fill chips make the live defense demo fast (Phase 1 mock accounts).
+// Quick-fill chips make the live defense demo fast. The same accounts exist
+// in mock mode (seeded localStorage) and in Supabase mode (supabase/seed.sql).
 const DEMO_ACCOUNTS = [
   { label: 'Admin', email: 'admin@demo.com', password: 'admin123' },
   { label: 'Donor (Maria, O-)', email: 'maria@demo.com', password: 'maria123' },
@@ -38,8 +40,8 @@ export default function Login() {
 
   return (
     <div className="mx-auto max-w-md py-6">
-      <h1 className="text-2xl font-bold text-gray-900">Welcome back</h1>
-      <p className="mt-1 text-sm text-gray-500">Sign in to your HemaMatch account.</p>
+      <h1 className="text-2xl font-bold text-cream">Welcome back</h1>
+      <p className="mt-1 text-sm text-cream/65">Sign in to your HemaMatch account.</p>
 
       <form onSubmit={handleSubmit} className="card mt-6 space-y-4 p-6">
         <div>
@@ -84,19 +86,19 @@ export default function Login() {
         </button>
 
         <div className="flex items-center justify-between text-sm">
-          <Link to="/forgot-password" className="font-medium text-red-600 hover:underline">
+          <Link to="/forgot-password" className="font-medium text-gold hover:underline">
             Forgot password?
           </Link>
-          <Link to="/register" className="font-medium text-red-600 hover:underline">
+          <Link to="/register" className="font-medium text-gold hover:underline">
             Create an account
           </Link>
         </div>
       </form>
 
-      {/* Phase 1 demo helper (mock data). Remove in production. */}
+      {/* Demo helper — works in mock mode and in Supabase mode after seed.sql */}
       <div className="card mt-4 p-4">
-        <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
-          Demo accounts (Phase 1 mock mode)
+        <p className="text-xs font-semibold uppercase tracking-wide text-cream/45">
+          Demo accounts {isMock ? '(mock mode — click to quick-fill)' : '(seeded by supabase/seed.sql)'}
         </p>
         <div className="mt-2 flex flex-wrap gap-2">
           {DEMO_ACCOUNTS.map((acc) => (

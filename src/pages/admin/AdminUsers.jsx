@@ -51,7 +51,7 @@ export default function AdminUsers() {
         <div className="card overflow-x-auto">
           <table className="w-full min-w-[820px] text-sm">
             <thead>
-              <tr className="border-b border-gray-200 text-left text-xs uppercase tracking-wide text-gray-400">
+              <tr className="border-b border-cream/15 text-left text-xs uppercase tracking-wide text-cream/45">
                 <th className="px-4 py-3">User</th>
                 <th className="px-4 py-3">Email</th>
                 <th className="px-4 py-3">Blood type</th>
@@ -61,22 +61,22 @@ export default function AdminUsers() {
                 <th className="px-4 py-3">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-cream/10">
               {filtered.map((u) => (
-                <tr key={u.id} className="hover:bg-gray-50">
+                <tr key={u.id} className="hover:bg-cream/5">
                   <td className="px-4 py-3">
                     <span className="flex items-center gap-2.5">
                       <Avatar name={u.profile.full_name} size="sm" />
-                      <span className="font-medium text-gray-900">{u.profile.full_name}</span>
+                      <span className="font-medium text-cream">{u.profile.full_name}</span>
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-gray-500">{u.email}</td>
+                  <td className="px-4 py-3 text-cream/65">{u.email}</td>
                   <td className="px-4 py-3">
-                    {u.profile.blood_type ? <BloodTypeBadge type={u.profile.blood_type} /> : <span className="text-gray-400">—</span>}
+                    {u.profile.blood_type ? <BloodTypeBadge type={u.profile.blood_type} /> : <span className="text-cream/45">—</span>}
                   </td>
-                  <td className="px-4 py-3 text-gray-600">{u.profile.region || '—'}</td>
+                  <td className="px-4 py-3 text-cream/75">{u.profile.region || '—'}</td>
                   <td className="px-4 py-3">
-                    <span className={u.profile.is_available ? 'font-medium text-green-600' : 'text-gray-500'}>
+                    <span className={u.profile.is_available ? 'font-medium text-emerald-400' : 'text-cream/65'}>
                       {u.profile.is_available ? 'Yes' : 'No'}
                     </span>
                   </td>
@@ -86,7 +86,7 @@ export default function AdminUsers() {
                     ) : (
                       <StatusBadge status="routine" label="User" />
                     )}
-                    <span className="ml-2 text-xs text-gray-400">joined {formatDate(u.profile.created_at)}</span>
+                    <span className="ml-2 text-xs text-cream/45">joined {formatDate(u.profile.created_at)}</span>
                   </td>
                   <td className="px-4 py-3">
                     <button

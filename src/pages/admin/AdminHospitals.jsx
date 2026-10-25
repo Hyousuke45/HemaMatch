@@ -58,17 +58,17 @@ export default function AdminHospitals() {
     <div className="flex flex-col gap-6">
       {/* Add hospital */}
       <form onSubmit={handleAdd} className="card space-y-4 p-6">
-        <p className="font-semibold text-gray-900">Add a hospital record</p>
+        <p className="font-semibold text-cream">Add a hospital record</p>
         <div className="grid gap-4 md:grid-cols-2">
           <div>
             <label className="label" htmlFor="h-name">
-              Name <span className="text-red-600">*</span>
+              Name <span className="text-gold">*</span>
             </label>
             <input id="h-name" className="input" value={form.name} onChange={set('name')} placeholder="e.g. Quezon City General Hospital" required maxLength={120} />
           </div>
           <div>
             <label className="label" htmlFor="h-region">
-              Region <span className="text-red-600">*</span>
+              Region <span className="text-gold">*</span>
             </label>
             <select id="h-region" className="input" value={form.region} onChange={set('region')} required>
               <option value="">Choose…</option>
@@ -111,7 +111,7 @@ export default function AdminHospitals() {
 
       {/* Hospital list */}
       <div>
-        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-400">
+        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-cream/45">
           All hospital records
         </h2>
         {loading && <InlineLoader label="Loading hospitals…" />}
@@ -124,7 +124,7 @@ export default function AdminHospitals() {
           <div className="card overflow-x-auto">
             <table className="w-full min-w-[860px] text-sm">
               <thead>
-                <tr className="border-b border-gray-200 text-left text-xs uppercase tracking-wide text-gray-400">
+                <tr className="border-b border-cream/15 text-left text-xs uppercase tracking-wide text-cream/45">
                   <th className="px-4 py-3">Hospital</th>
                   <th className="px-4 py-3">Region</th>
                   <th className="px-4 py-3">Status</th>
@@ -133,19 +133,19 @@ export default function AdminHospitals() {
                   <th className="px-4 py-3">Verification actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100">
+              <tbody className="divide-y divide-cream/10">
                 {hospitals.map((h) => (
-                  <tr key={h.id} className="hover:bg-gray-50">
+                  <tr key={h.id} className="hover:bg-cream/5">
                     <td className="px-4 py-3">
-                      <p className="font-medium text-gray-900">{h.name}</p>
-                      <p className="text-xs text-gray-400">{h.city || '—'}{h.contact_number ? ` · ${h.contact_number}` : ''}</p>
+                      <p className="font-medium text-cream">{h.name}</p>
+                      <p className="text-xs text-cream/45">{h.city || '—'}{h.contact_number ? ` · ${h.contact_number}` : ''}</p>
                     </td>
-                    <td className="px-4 py-3 text-gray-600">{h.region}</td>
+                    <td className="px-4 py-3 text-cream/75">{h.region}</td>
                     <td className="px-4 py-3">
                       <StatusBadge status={h.status} />
                     </td>
-                    <td className="max-w-[220px] px-4 py-3 text-xs text-gray-500">{h.notes || '—'}</td>
-                    <td className="px-4 py-3 text-gray-500">{formatDate(h.created_at)}</td>
+                    <td className="max-w-[220px] px-4 py-3 text-xs text-cream/65">{h.notes || '—'}</td>
+                    <td className="px-4 py-3 text-cream/65">{formatDate(h.created_at)}</td>
                     <td className="px-4 py-3">
                       <div className="flex flex-wrap gap-1.5">
                         {h.status !== 'verified' && (

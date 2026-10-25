@@ -44,7 +44,7 @@ export default function AdminLogs() {
         <div className="card overflow-x-auto">
           <table className="w-full min-w-[760px] text-sm">
             <thead>
-              <tr className="border-b border-gray-200 text-left text-xs uppercase tracking-wide text-gray-400">
+              <tr className="border-b border-cream/15 text-left text-xs uppercase tracking-wide text-cream/45">
                 <th className="px-4 py-3">When</th>
                 <th className="px-4 py-3">Actor</th>
                 <th className="px-4 py-3">Action</th>
@@ -52,29 +52,29 @@ export default function AdminLogs() {
                 <th className="px-4 py-3">Details</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-cream/10">
               {filtered.map((l) => (
-                <tr key={l.id} className="hover:bg-gray-50">
-                  <td className="whitespace-nowrap px-4 py-3 text-xs text-gray-500">
+                <tr key={l.id} className="hover:bg-cream/5">
+                  <td className="whitespace-nowrap px-4 py-3 text-xs text-cream/65">
                     {formatDateTime(l.created_at)}
                   </td>
-                  <td className="px-4 py-3 font-medium text-gray-900">{l.actor_name}</td>
+                  <td className="px-4 py-3 font-medium text-cream">{l.actor_name}</td>
                   <td className="px-4 py-3">
-                    <span className="rounded bg-red-50 px-2 py-0.5 font-mono text-xs font-semibold text-red-700">
+                    <span className="rounded bg-gold/10 px-2 py-0.5 font-mono text-xs font-semibold text-gold-light">
                       {l.action}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-xs text-gray-500">
+                  <td className="px-4 py-3 text-xs text-cream/65">
                     {l.entity}
-                    {l.entity_id && <span className="text-gray-400"> · {l.entity_id}</span>}
+                    {l.entity_id && <span className="text-cream/45"> · {l.entity_id}</span>}
                   </td>
-                  <td className="max-w-[320px] px-4 py-3 text-gray-600">{l.details || '—'}</td>
+                  <td className="max-w-[320px] px-4 py-3 text-cream/75">{l.details || '—'}</td>
                 </tr>
               ))}
             </tbody>
           </table>
-          <p className="border-t border-gray-100 px-4 py-3 text-xs text-gray-400">
-            Showing the {filtered.length} most recent matching entries (log capped at 200 in Phase 1).
+          <p className="border-t border-cream/10 px-4 py-3 text-xs text-cream/45">
+            Showing the {filtered.length} most recent matching entries (the log keeps the latest 200).
           </p>
         </div>
       )}

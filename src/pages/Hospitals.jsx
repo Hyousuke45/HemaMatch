@@ -15,8 +15,8 @@ export default function Hospitals() {
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Hospitals</h1>
-          <p className="mt-1 text-sm text-gray-500">
+          <h1 className="text-2xl font-bold text-cream">Hospitals</h1>
+          <p className="mt-1 text-sm text-cream/65">
             Administrator-verified hospitals that can be attached to blood requests.
           </p>
         </div>
@@ -42,23 +42,23 @@ export default function Hospitals() {
           {data.map((h) => (
             <div key={h.id} className="card p-5">
               <div className="flex items-start justify-between gap-2">
-                <p className="font-semibold text-gray-900">{h.name}</p>
+                <p className="font-semibold text-cream">{h.name}</p>
                 <StatusBadge status={h.status} />
               </div>
-              <p className="mt-2 text-sm text-gray-500">
+              <p className="mt-2 text-sm text-cream/65">
                 {h.city ? `${h.city} · ` : ''}
                 {h.region}
               </p>
-              {h.address && <p className="mt-1 text-xs leading-relaxed text-gray-500">{h.address}</p>}
+              {h.address && <p className="mt-1 text-xs leading-relaxed text-cream/65">{h.address}</p>}
               {h.contact_number && (
-                <p className="mt-1 text-xs text-gray-500">Contact: {h.contact_number}</p>
+                <p className="mt-1 text-xs text-cream/65">Contact: {h.contact_number}</p>
               )}
             </div>
           ))}
         </div>
       )}
 
-      <p className="text-xs leading-relaxed text-gray-400">
+      <p className="text-xs leading-relaxed text-cream/45">
         Light hospital module (agreed MVP scope): an admin-managed directory with verification
         status. Hospital document uploads and staff accounts are a documented future enhancement.
       </p>

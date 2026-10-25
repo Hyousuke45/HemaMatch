@@ -14,7 +14,7 @@ import { createSeedDb } from './mockData';
 import { BLOOD_TYPES, REGIONS, donorTypesFor } from './constants';
 import { newId, nowIso, isValidEmail, validatePassword } from './utils';
 
-const DB_KEY = 'HemaMatch_mock_db_v1';
+const DB_KEY = 'hemamatch_mock_db_v1';
 const LATENCY = 220;
 
 const delay = (ms = LATENCY) => new Promise((r) => setTimeout(r, ms));
@@ -46,6 +46,28 @@ function save() {
 function reset() {
   localStorage.removeItem(DB_KEY);
   db = null;
+}
+
+// ---------- mock realtime ----------
+// Same-tab listeners for freshly sent messages. The UI uses the same
+// subscribeMessages(conversationId, cb) contract in mock and Supabase mode
+// (Supabase mode uses a Realtime channel instead).
+const messageListeners = new Set();
+
+function subscribeMessages(conversationId, onChange) {
+  const listener = { conversationId, onChange };
+  messageListeners.add(listener);
+  return () => messageListeners.delete(listener);
+}
+
+function notifyMessageListeners(msg) {
+  messageListeners.forEach((l) => {
+    try {
+      if (l.conversationId === msg.conversation_id) l.onChange(msg);
+    } catch {
+      /* listener errors must never break a send */
+    }
+  });
 }
 
 // ---------- helpers ----------
@@ -596,6 +618,7 @@ async function sendMessage(conversationId, content) {
   };
   getDb().messages.push(msg);
   save();
+  notifyMessageListeners(msg); // mock "realtime": instant same-tab delivery
   return msg;
 }
 
@@ -850,6 +873,7 @@ export default {
   getOrCreateConversation,
   getMessages,
   sendMessage,
+  subscribeMessages,
 
   // hospitals
   listHospitals,

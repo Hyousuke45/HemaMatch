@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Alert, StatusBadge } from '../components/ui';
 import dataService from '../lib/dataService';
@@ -9,7 +10,8 @@ import { formatDate } from '../lib/utils';
 // enforces this ([RLS mirror] "profiles update own row"), so editing
 // someone else's row is impossible even with crafted requests.
 export default function Profile() {
-  const { user, refreshUser } = useAuth();
+  const { user, refreshUser, logout } = useAuth();
+  const navigate = useNavigate();
   const p = user.profile;
 
   const [form, setForm] = useState({
@@ -47,22 +49,22 @@ export default function Profile() {
 
   return (
     <div className="mx-auto max-w-2xl">
-      <h1 className="text-2xl font-bold text-gray-900">My profile</h1>
-      <p className="mt-1 text-sm text-gray-500">
+      <h1 className="text-2xl font-bold text-cream">My profile</h1>
+      <p className="mt-1 text-sm text-cream/65">
         Your donor profile powers matching: blood type, region and availability.
       </p>
 
       <form onSubmit={handleSubmit} className="card mt-6 space-y-5 p-6">
         {/* Read-only identity */}
-        <div className="grid gap-4 border-b border-gray-100 pb-5 sm:grid-cols-2">
+        <div className="grid gap-4 border-b border-cream/10 pb-5 sm:grid-cols-2">
           <div>
             <label className="label">Email (read-only)</label>
-            <input className="input bg-gray-50" value={user.email} disabled readOnly />
+            <input className="input bg-night" value={user.email} disabled readOnly />
           </div>
           <div className="flex items-end gap-2 pb-1">
             <label className="label">Account role</label>
             {p.role === 'admin' ? <StatusBadge status="verified" label="Administrator" /> : <StatusBadge status="routine" label="User" />}
-            <span className="text-xs text-gray-400">since {formatDate(p.created_at)}</span>
+            <span className="text-xs text-cream/45">since {formatDate(p.created_at)}</span>
           </div>
         </div>
 
@@ -86,7 +88,7 @@ export default function Profile() {
                 </option>
               ))}
             </select>
-            <p className="mt-1 text-xs text-gray-400">Required for appearing in donor matches.</p>
+            <p className="mt-1 text-xs text-cream/45">Required for appearing in donor matches.</p>
           </div>
           <div>
             <label className="label" htmlFor="city">
@@ -108,19 +110,19 @@ export default function Profile() {
               </option>
             ))}
           </select>
-          <p className="mt-1 text-xs text-gray-400">Same-region donors are shown first in matching results.</p>
+          <p className="mt-1 text-xs text-cream/45">Same-region donors are shown first in matching results.</p>
         </div>
 
-        <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-gray-200 p-4 hover:bg-gray-50">
+        <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-cream/15 p-4 hover:bg-cream/5">
           <input
             type="checkbox"
-            className="mt-0.5 h-4 w-4 accent-red-600"
+            className="mt-0.5 h-4 w-4 accent-gold"
             checked={form.is_available}
             onChange={(e) => setForm((f) => ({ ...f, is_available: e.target.checked }))}
           />
           <span>
-            <span className="block text-sm font-semibold text-gray-900">I am currently available to donate</span>
-            <span className="mt-0.5 block text-xs text-gray-500">
+            <span className="block text-sm font-semibold text-cream">I am currently available to donate</span>
+            <span className="mt-0.5 block text-xs text-cream/65">
               Unavailable donors are excluded from matching results. You can toggle this anytime —
               it is not a commitment to donate.
             </span>
@@ -136,11 +138,23 @@ export default function Profile() {
         </div>
       </form>
 
-      <p className="mt-4 text-xs leading-relaxed text-gray-400">
+      <p className="mt-4 text-xs leading-relaxed text-cream/45">
         Privacy: other signed-in users can only see your name, blood type, general location and
         availability — never your email address. Private communication happens exclusively
         through in-app messaging.
       </p>
+
+      {/* Mobile-friendly sign out (desktop also offers it in the header menu) */}
+      <button
+        type="button"
+        className="btn-danger mt-4 w-full md:max-w-xs"
+        onClick={async () => {
+          await logout();
+          navigate('/login');
+        }}
+      >
+        Sign out
+      </button>
     </div>
   );
 }

@@ -1,42 +1,108 @@
 @import "tailwindcss";
 
-/* HemaMatch design system
-   Primary: red-600 (blood/donation theme). Status colors are semantic only. */
+/* ============================================================
+   HemaMatch design system — dark "blood thirst" theme
+   Client-provided palette:
+     #220c12  night   — page background (deep maroon-black)
+     #430102  blood   — card surfaces (dark blood red)
+     #000000  ink     — wells: overlays, table heads, admin bar
+     #ebe0c2  cream   — primary text (warm cream)
+     #c1912f  gold    — accent: actions, links, highlights
+   Status colors stay semantic (green = good, amber = pending,
+   red = danger) tuned for dark surfaces.
+   Mobile-first: 44px+ touch targets, 16px inputs (no iOS zoom).
+   ============================================================ */
+
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
 
-  --color-body: #000000;
+  --color-night: #220c12;
+  --color-blood: #430102;
+  --color-ink: #000000;
+  --color-cream: #ebe0c2;
+  --color-gold: #c1912f;
+  --color-gold-light: #d9ab52;
+}
 
+@layer base {
+  :root {
+    color-scheme: dark; /* native selects, date pickers, scrollbars render dark */
+  }
+
+  html {
+    background-color: #220c12;
+  }
+
+  body {
+    @apply bg-night text-cream antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Comfortable, slim scrollbars on dark surfaces */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(235, 224, 194, 0.25) transparent;
+  }
+  *::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  *::-webkit-scrollbar-thumb {
+    background: rgba(235, 224, 194, 0.22);
+    border-radius: 9999px;
+  }
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  /* Visible keyboard focus for accessibility */
+  :focus-visible {
+    outline: 2px solid #c1912f;
+    outline-offset: 2px;
+  }
 }
 
 @layer components {
-  /* Buttons */
+  /* ---------- Buttons (min 44px touch targets on mobile) ---------- */
   .btn-primary {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50;
+    @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-gold px-4 py-2.5 text-sm font-semibold text-night transition-all hover:bg-gold-light active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50;
   }
   .btn-secondary {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50;
+    @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-cream/20 bg-transparent px-4 py-2.5 text-sm font-semibold text-cream transition-all hover:border-cream/40 hover:bg-cream/10 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50;
   }
   .btn-danger {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg border border-red-200 bg-white px-4 py-2 text-sm font-semibold text-red-600 transition-colors hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50;
+    @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-red-400/40 bg-transparent px-4 py-2.5 text-sm font-semibold text-red-300 transition-all hover:bg-red-400/10 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50;
   }
   .btn-ghost {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-100;
+    @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium text-cream/70 transition-colors hover:bg-cream/10 hover:text-cream;
   }
 
-  /* Form controls */
+  /* ---------- Form controls (16px on mobile = no iOS zoom) ---------- */
   .label {
-    @apply mb-1 block text-sm font-medium text-gray-700;
+    @apply mb-1.5 block text-sm font-medium text-cream/80;
   }
   .input {
-    @apply w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-500/30;
+    @apply w-full rounded-xl border border-cream/15 bg-ink/70 px-3.5 py-3 text-base text-cream shadow-inner shadow-black/30 transition-colors placeholder-cream/35 focus:border-gold focus:outline-none focus:ring-2 focus:ring-gold/25 md:py-2.5 md:text-sm disabled:cursor-not-allowed disabled:opacity-60;
+  }
+  select.input option {
+    @apply bg-ink text-cream;
   }
 
-  /* Surfaces */
+  /* ---------- Surfaces ---------- */
   .card {
-    @apply rounded-xl border border-gray-200 bg-white shadow-sm;
+    @apply rounded-2xl border border-cream/10 bg-blood shadow-lg shadow-black/30;
   }
-  .body {
-    @apply p-4 bg-body;
+  .card-well {
+    @apply rounded-xl border border-black/50 bg-ink/60;
+  }
+
+  /* Small pill chip (selected filters, meta labels) */
+  .chip {
+    @apply inline-flex items-center gap-1.5 rounded-full border border-cream/15 px-3 py-1.5 text-xs font-semibold text-cream/80;
+  }
+
+  /* ---------- Bottom tab bar safe area ---------- */
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
   }
 }

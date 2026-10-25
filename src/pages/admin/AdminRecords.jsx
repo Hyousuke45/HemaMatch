@@ -58,7 +58,7 @@ export default function AdminRecords() {
   return (
     <div className="flex flex-col gap-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="max-w-2xl text-sm text-gray-500">
+        <p className="max-w-2xl text-sm text-cream/65">
           Outcome records define the &quot;transaction&quot; of this system: the recorded result of an
           accepted donation request. Records are insert-only for audit integrity.
         </p>
@@ -86,7 +86,7 @@ export default function AdminRecords() {
           <div className="grid gap-4 md:grid-cols-2">
             <div>
               <label className="label" htmlFor="record_request">
-                Accepted request <span className="text-red-600">*</span>
+                Accepted request <span className="text-gold">*</span>
               </label>
               <select id="record_request" className="input" value={form.request_id} onChange={set('request_id')} required>
                 <option value="">Choose…</option>
@@ -110,7 +110,7 @@ export default function AdminRecords() {
                 ))}
               </select>
               {selectedRequest && (
-                <p className="mt-1 text-xs text-gray-400">
+                <p className="mt-1 text-xs text-cream/45">
                   Only ABO-compatible donors are listed for this request.
                 </p>
               )}
@@ -119,7 +119,7 @@ export default function AdminRecords() {
 
           <div>
             <label className="label" htmlFor="record_outcome">
-              Outcome <span className="text-red-600">*</span>
+              Outcome <span className="text-gold">*</span>
             </label>
             <div className="flex gap-2">
               {Object.entries(OUTCOMES).map(([k, v]) => (
@@ -141,7 +141,7 @@ export default function AdminRecords() {
 
           <div>
             <label className="label" htmlFor="record_reason">
-              Reason {form.outcome === 'failed' && <span className="text-red-600">*</span>}
+              Reason {form.outcome === 'failed' && <span className="text-gold">*</span>}
             </label>
             <textarea
               id="record_reason"
@@ -178,7 +178,7 @@ export default function AdminRecords() {
         <div className="card overflow-x-auto">
           <table className="w-full min-w-[760px] text-sm">
             <thead>
-              <tr className="border-b border-gray-200 text-left text-xs uppercase tracking-wide text-gray-400">
+              <tr className="border-b border-cream/15 text-left text-xs uppercase tracking-wide text-cream/45">
                 <th className="px-4 py-3">Outcome</th>
                 <th className="px-4 py-3">Request</th>
                 <th className="px-4 py-3">Donor</th>
@@ -186,21 +186,21 @@ export default function AdminRecords() {
                 <th className="px-4 py-3">Recorded</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-cream/10">
               {records.map((rec) => (
-                <tr key={rec.id} className="hover:bg-gray-50">
+                <tr key={rec.id} className="hover:bg-cream/5">
                   <td className="px-4 py-3">
                     <StatusBadge status={rec.outcome} />
                   </td>
                   <td className="px-4 py-3">
                     <span className="flex items-center gap-2">
                       <BloodTypeBadge type={rec.request_blood_type || '?'} />
-                      <span className="text-gray-600">{rec.request_region}</span>
+                      <span className="text-cream/75">{rec.request_region}</span>
                     </span>
                   </td>
-                  <td className="px-4 py-3 font-medium text-gray-900">{rec.donor_name || '—'}</td>
-                  <td className="max-w-[280px] px-4 py-3 text-gray-600">{rec.reason || '—'}</td>
-                  <td className="px-4 py-3 text-xs text-gray-400">
+                  <td className="px-4 py-3 font-medium text-cream">{rec.donor_name || '—'}</td>
+                  <td className="max-w-[280px] px-4 py-3 text-cream/75">{rec.reason || '—'}</td>
+                  <td className="px-4 py-3 text-xs text-cream/45">
                     {rec.recorded_by_name}
                     <br />
                     {formatDateTime(rec.created_at)}

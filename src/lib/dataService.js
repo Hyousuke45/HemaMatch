@@ -1,36 +1,34 @@
 // ============================================================
 // THE ONE FILE THAT DECIDES WHERE DATA COMES FROM.
 //
-// Phase 1 (now)  : mock backend (localStorage). The whole app runs
-//                  with zero infrastructure — perfect for development
-//                  and the "temporary testing" milestone.
-// Phase 2 (next) : implement src/lib/supabaseBackend.js exporting the
-//                  SAME function names listed below, then change
-//                  USE_MOCK to false. No page or component changes.
+// - mockBackend  : localStorage simulation, zero infrastructure.
+// - supabaseBackend : real Supabase (Auth, PostgreSQL + RLS, Realtime).
 //
-// BACKEND INTERFACE CONTRACT (both backends must implement all of these):
-//   AUTH     : getSession, register, verifyEmail, login, logout,
-//              requestPasswordReset, resetPassword
-//   PROFILE  : getMyProfile, updateMyProfile
-//   REQUESTS : listRequests(filters), getMyRequests, getRequest, createRequest,
-//              updateRequest, cancelRequest, setRequestStatus, getMatches
-//   MESSAGING: listConversations, getOrCreateConversation, getMessages, sendMessage
-//   HOSPITALS: listHospitals, adminCreateHospital, adminSetHospitalStatus
-//   RECORDS  : listRecords, createRecord
-//   USERS    : listUsers, toggleUserRole
-//   ADMIN    : getStats, listLogs
-//   PUBLIC   : getPublicStats
+// How the mode is chosen (in order):
+//   1. VITE_USE_MOCK env var — explicit override ("true"/"false")
+//   2. If VITE_SUPABASE_URL + VITE_SUPABASE_ANON_KEY are present -> Supabase
+//   3. Otherwise -> mock
+//
+// Pages branch on the exported `isMock` only where the UX legitimately
+// differs (registration verification, password recovery) — everything else
+// calls the same function names in both modes.
 // ============================================================
 
 import mockBackend from './mockBackend';
+import supabaseBackend from './supabaseBackend';
 
-const USE_MOCK = true; // Phase 2: set to false after supabaseBackend.js exists
+const envMock = import.meta.env.VITE_USE_MOCK;
+const hasSupabaseEnv = Boolean(
+  import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY
+);
 
-// Phase 2:
-// import supabaseBackend from './supabaseBackend';
+export const isMock =
+  envMock !== undefined && envMock !== ''
+    ? String(envMock).toLowerCase() !== 'false'
+    : !hasSupabaseEnv;
 
-const backend = USE_MOCK
-  ? mockBackend
-  : null; // Phase 2: supabaseBackend
+export const mode = isMock ? 'mock' : 'supabase';
+
+const backend = isMock ? mockBackend : supabaseBackend;
 
 export default backend;

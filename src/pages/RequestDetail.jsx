@@ -90,7 +90,7 @@ export default function RequestDetail() {
 
   return (
     <div className="mx-auto max-w-3xl">
-      <Link to="/requests" className="text-sm font-medium text-gray-500 hover:text-gray-800">
+      <Link to="/requests" className="text-sm font-medium text-cream/65 hover:text-cream">
         &larr; Back to requests
       </Link>
 
@@ -101,11 +101,11 @@ export default function RequestDetail() {
             <div className="flex items-center gap-4">
               <BloodTypeBadge type={request.blood_type} size="lg" />
               <div>
-                <h1 className="text-xl font-bold text-gray-900">
+                <h1 className="text-xl font-bold text-cream">
                   {request.units_needed} {request.units_needed === 1 ? 'unit' : 'units'} of{' '}
                   {request.blood_type} blood
                 </h1>
-                <p className="text-sm text-gray-500">
+                <p className="text-sm text-cream/65">
                   {request.region} · created {formatDate(request.created_at)}
                 </p>
               </div>
@@ -116,22 +116,22 @@ export default function RequestDetail() {
             </div>
           </div>
 
-          <dl className="mt-5 grid gap-x-6 gap-y-3 border-t border-gray-100 pt-5 text-sm sm:grid-cols-2">
+          <dl className="mt-5 grid gap-x-6 gap-y-3 border-t border-cream/10 pt-5 text-sm sm:grid-cols-2">
             <div>
-              <dt className="text-gray-400">Requester</dt>
-              <dd className="mt-0.5 flex items-center gap-2 font-medium text-gray-900">
+              <dt className="text-cream/45">Requester</dt>
+              <dd className="mt-0.5 flex items-center gap-2 font-medium text-cream">
                 <Avatar name={request.requester_name} size="sm" />
                 {request.requester_name}
-                {isOwner && <span className="text-xs font-semibold text-red-600">(you)</span>}
+                {isOwner && <span className="text-xs font-semibold text-gold">(you)</span>}
               </dd>
             </div>
             <div>
-              <dt className="text-gray-400">Urgency</dt>
-              <dd className="mt-0.5 font-medium text-gray-900">{URGENCY[request.urgency]}</dd>
+              <dt className="text-cream/45">Urgency</dt>
+              <dd className="mt-0.5 font-medium text-cream">{URGENCY[request.urgency]}</dd>
             </div>
             <div>
-              <dt className="text-gray-400">Hospital</dt>
-              <dd className="mt-0.5 font-medium text-gray-900">
+              <dt className="text-cream/45">Hospital</dt>
+              <dd className="mt-0.5 font-medium text-cream">
                 {request.hospital_name ? (
                   <span className="flex items-center gap-1.5">
                     {request.hospital_name}
@@ -145,19 +145,19 @@ export default function RequestDetail() {
               </dd>
             </div>
             <div>
-              <dt className="text-gray-400">Needed by</dt>
-              <dd className="mt-0.5 font-medium text-gray-900">{formatDate(request.needed_by)}</dd>
+              <dt className="text-cream/45">Needed by</dt>
+              <dd className="mt-0.5 font-medium text-cream">{formatDate(request.needed_by)}</dd>
             </div>
             <div className="sm:col-span-2">
-              <dt className="text-gray-400">Details</dt>
-              <dd className="mt-0.5 leading-relaxed text-gray-700">
+              <dt className="text-cream/45">Details</dt>
+              <dd className="mt-0.5 leading-relaxed text-cream/85">
                 {request.description || 'No additional details provided.'}
               </dd>
             </div>
           </dl>
 
           {/* Actions */}
-          <div className="mt-6 flex flex-wrap gap-2 border-t border-gray-100 pt-5">
+          <div className="mt-6 flex flex-wrap gap-2 border-t border-cream/10 pt-5">
             {isOwner && request.status === 'pending' && (
               <>
                 <Link to={`/requests/${id}/edit`} className="btn-secondary">
@@ -188,8 +188,8 @@ export default function RequestDetail() {
 
             {/* Admin corrections */}
             {isAdmin && request.status !== 'completed' && request.status !== 'cancelled' && (
-              <div className="flex w-full flex-wrap items-center gap-2 rounded-lg bg-gray-50 p-3">
-                <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+              <div className="flex w-full flex-wrap items-center gap-2 rounded-lg bg-night p-3">
+                <span className="text-xs font-semibold uppercase tracking-wide text-cream/45">
                   Admin controls
                 </span>
                 {request.status === 'pending' && (
@@ -218,18 +218,18 @@ export default function RequestDetail() {
         {request.record && (
           <div className="card p-6">
             <div className="flex items-center justify-between">
-              <p className="font-semibold text-gray-900">Donation outcome record</p>
+              <p className="font-semibold text-cream">Donation outcome record</p>
               <StatusBadge status={request.record.outcome} />
             </div>
-            <p className="mt-3 text-sm leading-relaxed text-gray-600">
+            <p className="mt-3 text-sm leading-relaxed text-cream/75">
               {request.record.reason || 'No reason recorded.'}
             </p>
-            <p className="mt-3 text-xs text-gray-400">
+            <p className="mt-3 text-xs text-cream/45">
               {request.record.donor_name ? `Donor: ${request.record.donor_name} · ` : ''}
               Recorded by {request.record.recorded_by_name} · {formatDateTime(request.record.created_at)}
             </p>
             {request.record.outcome === 'failed' && (
-              <p className="mt-2 text-xs text-gray-500">
+              <p className="mt-2 text-xs text-cream/65">
                 The request remains open so other donors can still help.
               </p>
             )}
@@ -240,10 +240,10 @@ export default function RequestDetail() {
         {(isOwner || isAdmin) && (
           <section>
             <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-lg font-bold text-gray-900">Potential donors (preliminary match)</h2>
+              <h2 className="text-lg font-bold text-cream">Potential donors (preliminary match)</h2>
               <button
                 type="button"
-                className="text-sm font-medium text-red-600 hover:underline"
+                className="text-sm font-medium text-gold hover:underline"
                 onClick={reloadMatches}
               >
                 Refresh
@@ -261,8 +261,8 @@ export default function RequestDetail() {
 
             {!matchesLoading && !matchesError && matches && matches.donors.length === 0 && (
               <div className="card px-6 py-10 text-center">
-                <p className="font-semibold text-gray-900">No available donors match yet</p>
-                <p className="mx-auto mt-1 max-w-md text-sm text-gray-500">
+                <p className="font-semibold text-cream">No available donors match yet</p>
+                <p className="mx-auto mt-1 max-w-md text-sm text-cream/65">
                   Donors must be ABO/Rh-compatible, currently available, and have a completed
                   profile. Check back later — availability changes.
                 </p>
@@ -271,9 +271,9 @@ export default function RequestDetail() {
 
             {!matchesLoading && !matchesError && matches && matches.donors.length > 0 && (
               <>
-                <p className="mb-3 text-sm text-gray-500">
+                <p className="mb-3 text-sm text-cream/65">
                   Compatible donor blood types:{' '}
-                  <span className="font-semibold text-gray-900">
+                  <span className="font-semibold text-cream">
                     {matches.compatible_types.join(', ')}
                   </span>{' '}
                   · same-region donors shown first.

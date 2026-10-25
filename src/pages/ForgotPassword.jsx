@@ -3,15 +3,17 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Alert } from '../components/ui';
 import { isValidEmail, validatePassword } from '../lib/utils';
+import { isMock } from '../lib/dataService';
 
-// Password recovery. Phase 1: simulated reset link (mock mode).
-// Phase 2: Supabase Auth sends a real reset email — this page only keeps
-// step 1 (ask for email) and delegates the rest to Supabase.
+// Password recovery.
+//   mock mode    : simulated reset link -> set a new password inline.
+//   Supabase mode: a REAL reset email is sent; clicking its link opens the
+//                  dedicated /reset-password page with a recovery session.
 export default function ForgotPassword() {
   const { requestPasswordReset, resetPassword } = useAuth();
   const navigate = useNavigate();
 
-  const [stage, setStage] = useState('email'); // email -> reset -> done
+  const [stage, setStage] = useState('email'); // email -> reset (mock only) -> done
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
@@ -25,7 +27,9 @@ export default function ForgotPassword() {
     setBusy(true);
     try {
       await requestPasswordReset(email);
-      setStage('reset');
+      // In Supabase mode there is no second step HERE — the emailed link
+      // opens /reset-password instead.
+      setStage(isMock ? 'reset' : 'done');
     } catch (err) {
       setError(err?.message || 'Failed to send reset email.');
     } finally {
@@ -50,14 +54,19 @@ export default function ForgotPassword() {
     }
   };
 
+  const subtitle =
+    stage === 'email'
+      ? 'Enter your account email and we will send a reset link.'
+      : stage === 'reset'
+        ? 'Set a new password for your account.'
+        : isMock
+          ? 'Your password has been updated.'
+          : 'Check your inbox — if an account exists for that email, a reset link is on its way.';
+
   return (
     <div className="mx-auto max-w-md py-6">
-      <h1 className="text-2xl font-bold text-gray-900">Password recovery</h1>
-      <p className="mt-1 text-sm text-gray-500">
-        {stage === 'email' && 'Enter your account email and we will send a reset link.'}
-        {stage === 'reset' && 'Set a new password for your account.'}
-        {stage === 'done' && 'Your password has been updated.'}
-      </p>
+      <h1 className="text-2xl font-bold text-cream">Password recovery</h1>
+      <p className="mt-1 text-sm text-cream/65">{subtitle}</p>
 
       <div className="card mt-6 p-6">
         {stage === 'email' && (
@@ -85,10 +94,10 @@ export default function ForgotPassword() {
 
         {stage === 'reset' && (
           <form onSubmit={handleReset} className="space-y-4">
-            {/* Phase 1 simulation notice */}
+            {/* Mock-mode simulation notice */}
             <Alert tone="info" title="Simulated reset link">
-              Mock mode does not send real email. In Phase 2, Supabase emails a secure link that
-              opens this step. Continue below to simulate it.
+              Mock mode does not send real email. In Supabase mode, the emailed link opens the
+              dedicated &quot;Set a new password&quot; page. Continue below to simulate it.
             </Alert>
             <div>
               <label className="label" htmlFor="new-password">
@@ -128,8 +137,10 @@ export default function ForgotPassword() {
 
         {stage === 'done' && (
           <div className="space-y-4 text-center">
-            <Alert tone="success" title="Password updated">
-              You can now sign in with your new password.
+            <Alert tone="success" title={isMock ? 'Password updated' : 'Reset link sent'}>
+              {isMock
+                ? 'You can now sign in with your new password.'
+                : 'Click the link in the email to choose a new password. The link opens the secure “Set a new password” page.'}
             </Alert>
             <Link to="/login" className="btn-primary w-full">
               Go to sign in
@@ -137,8 +148,8 @@ export default function ForgotPassword() {
           </div>
         )}
 
-        <p className="mt-4 text-center text-sm text-gray-500">
-          <Link to="/login" className="font-medium text-red-600 hover:underline">
+        <p className="mt-4 text-center text-sm text-cream/65">
+          <Link to="/login" className="font-medium text-gold hover:underline">
             Back to sign in
           </Link>
         </p>

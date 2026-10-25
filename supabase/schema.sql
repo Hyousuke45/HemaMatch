@@ -38,7 +38,8 @@ create table if not exists public.profiles (
 
 alter table public.profiles enable row level security;
 
--- Automatically create a profile row whenever a user signs up.
+-- Automatically create a profile row whenever a user signs up,
+-- and write the registration event to the audit log.
 create or replace function public.handle_new_user()
 returns trigger
 language plpgsql
@@ -51,6 +52,9 @@ begin
     new.id,
     coalesce(new.raw_user_meta_data->>'full_name', split_part(new.email, '@', 1))
   );
+  insert into public.activity_logs (actor_id, action, entity, entity_id, details)
+  values (new.id, 'user.registered', 'profiles', new.id,
+          'New account registered (' || new.email || ').');
   return new;
 end;
 $$;
@@ -238,11 +242,17 @@ as $$
 declare
   is_requester boolean := new.requester_id = auth.uid();
   is_admin boolean := public.is_admin();
+  v_reason text := coalesce(nullif(current_setting('app.status_reason', true), ''), '');
 begin
   -- Only the owner (or an admin) reaches this trigger (see UPDATE policy),
   -- but re-check who is allowed to do WHAT:
   if new.status = 'completed' and not is_admin then
     raise exception 'Only an administrator can mark a request as completed.';
+  end if;
+
+  -- Requesters may edit details only while the request is still Pending.
+  if new.status = old.status and is_requester and not is_admin and old.status <> 'pending' then
+    raise exception 'Only pending requests can be edited.';
   end if;
 
   if is_requester and not is_admin and old.status <> 'pending' then
@@ -268,8 +278,12 @@ begin
       'donation_requests',
       new.id,
       'Status changed from ' || old.status || ' to ' || new.status ||
+      case when v_reason <> '' then ' — reason: ' || v_reason else '' end ||
       case when is_admin and not is_requester then ' (administrator action)' else '' end
     );
+    -- v_reason is set transaction-locally by set_request_status(); clear it so
+    -- later statements in the same transaction never inherit a stale reason.
+    perform set_config('app.status_reason', '', true);
   elsif is_requester and old.status = 'pending' then
     insert into public.activity_logs (actor_id, action, entity, entity_id, details)
     values (auth.uid(), 'request.updated', 'donation_requests', new.id, 'Request details edited by requester.');
@@ -535,7 +549,8 @@ create policy "logs_select_admin"
   on public.activity_logs for select to authenticated
   using (public.is_admin());
 
--- Log profile registration-related changes minimally (no PII beyond names)
+-- Log profile changes minimally (no PII beyond names).
+-- Role changes are skipped here: admin_set_role() writes its own, clearer entry.
 create or replace function public.log_profile_change()
 returns trigger
 language plpgsql
@@ -543,11 +558,19 @@ security definer
 set search_path = public
 as $$
 begin
+  if new.role is distinct from old.role then
+    return new; -- logged by admin_set_role instead
+  end if;
   insert into public.activity_logs (actor_id, action, entity, entity_id, details)
   values (new.id, 'profile.updated', 'profiles', new.id, 'Donor profile updated.');
   return new;
 end;
 $$;
+
+drop trigger if exists profile_change_logged on public.profiles;
+create trigger profile_change_logged
+  after update on public.profiles
+  for each row execute function public.log_profile_change();
 
 -- ============================================================
 -- 8. INDEXES (for the filters the app actually uses)
@@ -561,3 +584,295 @@ create index if not exists idx_messages_conversation on public.messages(conversa
 create index if not exists idx_participants_user on public.conversation_participants(user_id);
 create index if not exists idx_hospitals_status on public.hospitals(status);
 create index if not exists idx_logs_created on public.activity_logs(created_at desc);
+
+-- ============================================================
+-- 9. HEMAMATCH PHASE 2 EXTENSIONS
+-- Security-definer RPCs the browser calls instead of raw writes:
+--   set_request_status() — every status change + its REASON is logged
+--                         server-side (clients cannot write activity_logs)
+--   admin_list_users()   — admin user directory (email lives in auth, so
+--                          profiles alone cannot show it)
+--   admin_set_role()     — the ONLY way a role can change (audit + self-
+--                          demotion lockout guard)
+--   get_public_stats()   — anonymous landing-page counters (aggregates only,
+--                          no personal data)
+--   admin_get_stats()    — admin dashboard counters in one round trip
+-- ============================================================
+
+-- 9.1 Participants may read membership rows of their own conversations
+--     (needed to render "who is the other participant" in the UI).
+create policy "participants_select_participant"
+  on public.conversation_participants for select to authenticated
+  using (
+    exists (
+      select 1 from public.conversation_participants cp
+      where cp.conversation_id = conversation_participants.conversation_id
+        and cp.user_id = auth.uid()
+    )
+  );
+
+-- 9.2 Status transitions with a REASON (recorded in the activity log).
+--     The reason travels via a transaction-local setting that the
+--     guard_request_update trigger reads — one logging point, no forgery:
+--     a client can never write activity_logs directly.
+create or replace function public.set_request_status(
+  p_request_id uuid,
+  p_new_status text,
+  p_reason text default ''
+)
+returns public.donation_requests
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  r public.donation_requests;
+  v_requester boolean;
+  v_admin boolean;
+begin
+  select * into r from public.donation_requests where id = p_request_id;
+  if r.id is null then
+    raise exception 'Request not found.';
+  end if;
+
+  v_requester := r.requester_id = auth.uid();
+  v_admin := public.is_admin();
+  if not v_requester and not v_admin then
+    raise exception 'Only the requester or an administrator can change this status.';
+  end if;
+  if p_new_status not in ('pending', 'accepted', 'completed', 'cancelled') then
+    raise exception 'Invalid status.';
+  end if;
+  if p_new_status = 'completed' and not v_admin then
+    raise exception 'Only an administrator can mark a request as completed.';
+  end if;
+  if p_new_status = r.status then
+    return r; -- no-op, nothing logged
+  end if;
+
+  -- Hand the reason to the trigger (validated + logged there, once).
+  perform set_config('app.status_reason', left(coalesce(p_reason, ''), 300), true);
+
+  update public.donation_requests
+    set status = p_new_status
+    where id = p_request_id
+    returning * into r;
+  return r;
+end;
+$$;
+
+grant execute on function public.set_request_status(uuid, text, text) to authenticated;
+
+-- 9.3 Log request creation (audit parity with the mock backend)
+create or replace function public.log_request_created()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  insert into public.activity_logs (actor_id, action, entity, entity_id, details)
+  values (
+    new.requester_id, 'request.created', 'donation_requests', new.id,
+    new.blood_type || ' request created (' || new.region || ', ' || new.urgency || ').'
+  );
+  return new;
+end;
+$$;
+
+drop trigger if exists request_created_logged on public.donation_requests;
+create trigger request_created_logged
+  after insert on public.donation_requests
+  for each row execute function public.log_request_created();
+
+-- 9.4 Outcome-record validation, enforced in the DATABASE:
+--     accepted requests only, and the recorded donor must be ABO-compatible.
+--     (The admin UI only offers compatible donors — this is the backstop.)
+create or replace function public.validate_donation_record()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_status text;
+  v_request_type text;
+  v_donor_type text;
+begin
+  select status, blood_type into v_status, v_request_type
+  from public.donation_requests where id = new.request_id;
+  if v_status is distinct from 'accepted' then
+    raise exception 'Outcome records can only be added to accepted requests.';
+  end if;
+
+  if new.donor_id is not null then
+    select blood_type into v_donor_type from public.profiles where id = new.donor_id;
+    if v_donor_type is not null and not (
+      (v_request_type = 'O-' and v_donor_type in ('O-')) or
+      (v_request_type = 'O+' and v_donor_type in ('O-','O+')) or
+      (v_request_type = 'A-' and v_donor_type in ('O-','A-')) or
+      (v_request_type = 'A+' and v_donor_type in ('O-','O+','A-','A+')) or
+      (v_request_type = 'B-' and v_donor_type in ('O-','B-')) or
+      (v_request_type = 'B+' and v_donor_type in ('O-','O+','B-','B+')) or
+      (v_request_type = 'AB-' and v_donor_type in ('O-','A-','B-','AB-')) or
+      (v_request_type = 'AB+' and v_donor_type in ('O-','O+','A-','A+','B-','B+','AB-','AB+'))
+    ) then
+      raise exception 'The selected donor has an incompatible blood type for this request.';
+    end if;
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists validate_record on public.donation_records;
+create trigger validate_record
+  before insert on public.donation_records
+  for each row execute function public.validate_donation_record();
+
+-- 9.5 Admin user directory. Emails live in auth.users, so the directory
+--     needs a SECURITY DEFINER function. Access is admin-only, checked
+--     inside the function itself.
+create or replace function public.admin_list_users()
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not public.is_admin() then
+    raise exception 'Administrator access required.';
+  end if;
+  return coalesce((
+    select jsonb_agg(jsonb_build_object(
+      'id', p.id,
+      'email', u.email,
+      'verified', (u.email_confirmed_at is not null),
+      'full_name', p.full_name,
+      'role', p.role,
+      'blood_type', p.blood_type,
+      'region', p.region,
+      'city', p.city,
+      'is_available', p.is_available,
+      'created_at', p.created_at
+    ) order by p.full_name)
+    from public.profiles p
+    join auth.users u on u.id = p.id
+  ), '[]'::jsonb);
+end;
+$$;
+
+grant execute on function public.admin_list_users() to authenticated;
+
+-- 9.6 The ONLY path that can change a role. Admin-only, never your own
+--     account (lockout protection), always audited.
+create or replace function public.admin_set_role(p_target_user uuid, p_new_role text)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_target_name text;
+  v_old_role text;
+begin
+  if not public.is_admin() then
+    raise exception 'Administrator access required.';
+  end if;
+  if p_target_user = auth.uid() then
+    raise exception 'You cannot change your own role.';
+  end if;
+  if p_new_role not in ('user', 'admin') then
+    raise exception 'Invalid role.';
+  end if;
+
+  select full_name, role into v_target_name, v_old_role
+  from public.profiles where id = p_target_user;
+  if v_target_name is null then
+    raise exception 'User not found.';
+  end if;
+  if v_old_role = p_new_role then
+    return jsonb_build_object('id', p_target_user, 'role', p_new_role);
+  end if;
+
+  update public.profiles set role = p_new_role where id = p_target_user;
+
+  insert into public.activity_logs (actor_id, action, entity, entity_id, details)
+  values (
+    auth.uid(), 'user.role_changed', 'profiles', p_target_user,
+    'Role of ' || v_target_name || ' changed to ' || p_new_role || '.'
+  );
+
+  return jsonb_build_object('id', p_target_user, 'role', p_new_role, 'full_name', v_target_name);
+end;
+$$;
+
+grant execute on function public.admin_set_role(uuid, text) to authenticated;
+
+-- 9.7 Anonymous landing-page counters. Aggregates only — no personal data.
+create or replace function public.get_public_stats()
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_donors integer;
+  v_open integer;
+  v_completed integer;
+  v_hospitals integer;
+begin
+  select count(*) into v_donors from public.profiles
+    where blood_type is not null and is_available;
+  select count(*) into v_open from public.donation_requests where status = 'pending';
+  select count(*) into v_completed from public.donation_requests where status = 'completed';
+  select count(*) into v_hospitals from public.hospitals where status = 'verified';
+  return jsonb_build_object(
+    'donors', v_donors,
+    'open_requests', v_open,
+    'completed', v_completed,
+    'hospitals', v_hospitals
+  );
+end;
+$$;
+
+grant execute on function public.get_public_stats() to anon, authenticated;
+
+-- 9.8 Admin dashboard stats in one round trip (live counts, never hardcoded).
+create or replace function public.admin_get_stats()
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not public.is_admin() then
+    raise exception 'Administrator access required.';
+  end if;
+  return jsonb_build_object(
+    'total_users', (select count(*) from public.profiles),
+    'available_donors', (select count(*) from public.profiles
+                          where blood_type is not null and is_available),
+    'requests', jsonb_build_object(
+      'total', (select count(*) from public.donation_requests),
+      'pending', (select count(*) from public.donation_requests where status = 'pending'),
+      'accepted', (select count(*) from public.donation_requests where status = 'accepted'),
+      'completed', (select count(*) from public.donation_requests where status = 'completed'),
+      'cancelled', (select count(*) from public.donation_requests where status = 'cancelled')
+    ),
+    'hospitals', jsonb_build_object(
+      'total', (select count(*) from public.hospitals),
+      'verified', (select count(*) from public.hospitals where status = 'verified'),
+      'pending', (select count(*) from public.hospitals where status = 'pending'),
+      'rejected', (select count(*) from public.hospitals where status = 'rejected')
+    ),
+    'records', jsonb_build_object(
+      'total', (select count(*) from public.donation_records),
+      'successful', (select count(*) from public.donation_records where outcome = 'successful'),
+      'failed', (select count(*) from public.donation_records where outcome = 'failed')
+    ),
+    'conversations', (select count(*) from public.conversations)
+  );
+end;
+$$;
+
+grant execute on function public.admin_get_stats() to authenticated;
