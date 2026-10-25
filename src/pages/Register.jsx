@@ -5,6 +5,7 @@ import { Alert } from '../components/ui';
 import { isValidEmail, validatePassword } from '../lib/utils';
 import dataService, { isMock } from '../lib/dataService';
 
+
 // Registration + email verification.
 // Email verification is ENABLED in this project:
 //   - mock mode    : the "email link" is simulated with a button.
