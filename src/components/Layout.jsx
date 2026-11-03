@@ -14,9 +14,13 @@ import { classNames } from '../lib/utils';
 export function Brand() {
   return (
     <NavLink to="/" className="flex items-center gap-2" aria-label={`${APP_NAME} home`}>
-      <svg className="h-7 w-7" viewBox="0 0 24 24" fill="#c1912f" aria-hidden="true">
+      {/* <svg className="h-7 w-7" viewBox="0 0 24 24" fill="#c1912f" aria-hidden="true">
         <path d="M12 2C12 2 5 10.3 5 15a7 7 0 0 0 14 0C19 10.3 12 2 12 2Z" />
-      </svg>
+      </svg> */}
+
+      <img src="/favicon.ico" alt="" className="auth-logo mx-auto" style={{ margin: "0 auto" }} />
+        
+
       <span className="text-lg font-bold text-cream">
         Hema<span className="text-gold">Match</span>
       </span>
