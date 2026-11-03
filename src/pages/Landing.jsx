@@ -8,11 +8,11 @@ import { APP_NAME, MATCHING_DISCLAIMER } from '../lib/constants';
 const STEPS = [
   {
     title: '1. Register & build your donor profile',
-    body: 'Create an account, then add your blood type, region and availability. Only directory-safe information is shared — never your email address.'
+    body: 'Create an account, then add your blood type, region, photo and availability. Only directory-safe information is shared — never your email address.'
   },
   {
-    title: '2. Post or browse requests',
-    body: 'Anyone can request blood. Requests are visible to all signed-in users with their current status: Pending, Accepted, Completed or Cancelled.'
+    title: '2. Request — or offer to donate',
+    body: 'Anyone can request blood. You can also list yourself as a volunteer donor so requesters nearby can find you directly. Donation is always voluntary, never for sale.'
   },
   {
     title: '3. Match, chat & coordinate',
@@ -50,6 +50,9 @@ export default function Landing() {
                 <Link to="/dashboard" className="btn-primary w-full sm:w-auto">
                   Go to my dashboard
                 </Link>
+                <Link to="/donate" className="btn-secondary w-full sm:w-auto">
+                  Donate blood
+                </Link>
                 <Link to="/requests" className="btn-secondary w-full sm:w-auto">
                   Browse requests
                 </Link>
@@ -71,7 +74,7 @@ export default function Landing() {
         <div className="relative hidden md:block">
           <div className="card mx-auto max-w-sm p-6">
             <div className="flex items-center justify-between">
-              <span className="rounded-lg border border-red-400/40 bg-red-700 px-4 py-1.5 text-lg font-bold text-cream">
+              <span className="rounded-lg border border-red-400/40 bg-blood px-4 py-1.5 text-lg font-bold text-cream">
                 O+
               </span>
               <span className="rounded-full border border-amber-400/30 bg-amber-400/15 px-2.5 py-0.5 text-xs font-semibold text-amber-300">

@@ -95,26 +95,35 @@ where u.email like '%@demo.com'
 
 -- ------------------------------------------------------------
 -- 3. Profiles (created by the trigger; enrich with donor data)
+--    avatar_url uses DiceBear (free, no account needed) so the
+--    profile-photo feature is visible in the demo without any
+--    Cloudinary setup. Replace freely with real Cloudinary URLs.
 -- ------------------------------------------------------------
 update public.profiles set blood_type = 'O+', region = 'NCR (Metro Manila)',           city = 'Manila',        is_available = false
   where id = '00000000-0000-0000-0000-000000000001'; -- Ana (admin)
-update public.profiles set blood_type = 'O-', region = 'NCR (Metro Manila)',           city = 'Quezon City',   is_available = true
+update public.profiles set blood_type = 'O-', region = 'NCR (Metro Manila)',           city = 'Quezon City',   is_available = true,
+  avatar_url = 'https://api.dicebear.com/9.x/avataaars/svg?seed=Maria%20Santos&backgroundColor=c1912f'
   where id = '00000000-0000-0000-0000-000000000002'; -- Maria
-update public.profiles set blood_type = 'A+', region = 'Region IV-A (CALABARZON)',      city = 'Antipolo',      is_available = true
+update public.profiles set blood_type = 'A+', region = 'Region IV-A (CALABARZON)',      city = 'Antipolo',      is_available = true,
+  avatar_url = 'https://api.dicebear.com/9.x/avataaars/svg?seed=Juan%20Dela%20Cruz&backgroundColor=b6452c'
   where id = '00000000-0000-0000-0000-000000000003'; -- Juan
-update public.profiles set blood_type = 'B+', region = 'NCR (Metro Manila)',           city = 'Makati',        is_available = true
+update public.profiles set blood_type = 'B+', region = 'NCR (Metro Manila)',           city = 'Makati',        is_available = true,
+  avatar_url = 'https://api.dicebear.com/9.x/avataaars/svg?seed=Angela%20Reyes&backgroundColor=8a3033'
   where id = '00000000-0000-0000-0000-000000000004'; -- Angela
 update public.profiles set blood_type = 'B+', region = 'NCR (Metro Manila)',           city = 'Pasig',         is_available = false
   where id = '00000000-0000-0000-0000-000000000005'; -- Pedro (intentionally unavailable: shows the availability filter)
-update public.profiles set blood_type = 'AB-', region = 'Region III (Central Luzon)',  city = 'San Fernando',  is_available = true
+update public.profiles set blood_type = 'AB-', region = 'Region III (Central Luzon)',  city = 'San Fernando',  is_available = false, -- paused listing (sync rule)
+  avatar_url = 'https://api.dicebear.com/9.x/avataaars/svg?seed=Miguel%20Lopez&backgroundColor=4d5e5a'
   where id = '00000000-0000-0000-0000-000000000006'; -- Miguel
-update public.profiles set blood_type = 'O+', region = 'Region VI (Western Visayas)',  city = 'Iloilo City',   is_available = true
+update public.profiles set blood_type = 'O+', region = 'Region VI (Western Visayas)',  city = 'Iloilo City',   is_available = true,
+  avatar_url = 'https://api.dicebear.com/9.x/avataaars/svg?seed=Cristina%20Flores&backgroundColor=946b2d'
   where id = '00000000-0000-0000-0000-000000000007'; -- Cristina
 update public.profiles set blood_type = 'A-', region = 'Region XI (Davao Region)',     city = 'Davao City',    is_available = true
   where id = '00000000-0000-0000-0000-000000000008'; -- Rafael
 update public.profiles set blood_type = 'AB+', region = 'NCR (Metro Manila)',          city = 'Taguig',        is_available = false
   where id = '00000000-0000-0000-0000-000000000009'; -- Grace
-update public.profiles set blood_type = 'O-', region = 'Region IV-A (CALABARZON)',      city = 'Bacoor',        is_available = true
+update public.profiles set blood_type = 'O-', region = 'Region IV-A (CALABARZON)',      city = 'Bacoor',        is_available = true,
+  avatar_url = 'https://api.dicebear.com/9.x/avataaars/svg?seed=Paolo%20Villanueva&backgroundColor=6b8e9e'
   where id = '00000000-0000-0000-0000-00000000000a'; -- Paolo
 update public.profiles set blood_type = 'B-', region = 'NCR (Metro Manila)',           city = 'Mandaluyong',   is_available = true
   where id = '00000000-0000-0000-0000-00000000000b'; -- Sofia
@@ -150,6 +159,26 @@ insert into public.donation_requests (
    'NCR (Metro Manila)', '00000000-0000-0000-0000-00000000aa01', 'critical', current_date + 3,
    'Brother needs B- blood for an emergency procedure at St. Mary General Hospital. Looking for donors.',
    'pending')
+on conflict (id) do nothing;
+
+-- ------------------------------------------------------------
+-- 6. Donation offers (v3 — the "donate" side)
+--    One voluntary listing per donor. These mirror the mock-mode
+--    seed data so both modes demo identically.
+-- ------------------------------------------------------------
+insert into public.donation_offers (id, donor_id, note, status) values
+  ('30000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000002',
+   'Universal donor (O-) here. I usually donate on weekends — Quezon City or nearby Manila blood banks. Message me anytime.', 'open'),
+  ('30000000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-000000000003',
+   'Willing to travel within CALABARZON and nearby Metro Manila hospitals. Prefer weekends.', 'open'),
+  ('30000000-0000-0000-0000-000000000003', '00000000-0000-0000-0000-000000000004',
+   'Available weekday mornings. Regular donor at St. Mary General Hospital blood bank.', 'open'),
+  ('30000000-0000-0000-0000-000000000004', '00000000-0000-0000-0000-000000000007',
+   'Based in Iloilo City — happy to help patients anywhere in Western Visayas.', 'open'),
+  ('30000000-0000-0000-0000-000000000005', '00000000-0000-0000-0000-00000000000a',
+   'O- donor in Bacoor. I can reach Makati or Taguig hospitals with a day''s notice.', 'open'),
+  ('30000000-0000-0000-0000-000000000006', '00000000-0000-0000-0000-000000000006',
+   'Pausing for now — back after my next eligibility date. Thank you!', 'paused')
 on conflict (id) do nothing;
 
 -- ------------------------------------------------------------

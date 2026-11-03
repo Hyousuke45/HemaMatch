@@ -146,7 +146,7 @@ export function BloodTypeBadge({ type, size = 'sm' }) {
   return (
     <span
       className={classNames(
-        'inline-flex shrink-0 items-center rounded-lg border border-red-400/40 bg-red-700 font-bold text-cream shadow-sm shadow-red-950/60',
+        'inline-flex shrink-0 items-center rounded-lg border border-red-400/40 bg-blood font-bold text-cream shadow-sm shadow-black/60',
         sizes[size] || sizes.sm
       )}
     >
@@ -174,7 +174,9 @@ export function StatCard({ label, value, hint, tone = 'default' }) {
   );
 }
 
-// ---------- Avatar (initials) ----------
+// ---------- Avatar (profile photo with initials fallback) ----------
+// If `src` is missing or fails to load (offline / deleted image),
+// the initials version renders instead — the UI never breaks.
 const AVATAR_COLORS = [
   { bg: 'bg-red-800', fg: 'text-cream' },
   { bg: 'bg-gold', fg: 'text-night' },
@@ -184,7 +186,8 @@ const AVATAR_COLORS = [
   { bg: 'bg-stone-700', fg: 'text-cream' }
 ];
 
-export function Avatar({ name, size = 'md' }) {
+export function Avatar({ name, src, size = 'md' }) {
+  const [broken, setBroken] = useState(false);
   const initials = String(name || '?')
     .split(' ')
     .slice(0, 2)
@@ -193,18 +196,33 @@ export function Avatar({ name, size = 'md' }) {
   let hash = 0;
   for (const ch of String(name || '')) hash = (hash * 31 + ch.charCodeAt(0)) % 997;
   const color = AVATAR_COLORS[hash % AVATAR_COLORS.length];
-  const sizes = { sm: 'h-7 w-7 text-[10px]', md: 'h-9 w-9 text-xs', lg: 'h-12 w-12 text-sm' };
+  const sizes = {
+    sm: 'h-7 w-7 text-[10px]',
+    md: 'h-9 w-9 text-xs',
+    lg: 'h-12 w-12 text-sm',
+    xl: 'h-20 w-20 text-xl'
+  };
   return (
     <span
       className={classNames(
-        'inline-flex shrink-0 items-center justify-center rounded-full font-bold',
+        'inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full font-bold ring-1 ring-cream/15',
         color.bg,
         color.fg,
         sizes[size] || sizes.md
       )}
       aria-hidden="true"
     >
-      {initials}
+      {src && !broken ? (
+        <img
+          src={src}
+          alt=""
+          loading="lazy"
+          className="h-full w-full object-cover"
+          onError={() => setBroken(true)}
+        />
+      ) : (
+        initials
+      )}
     </span>
   );
 }

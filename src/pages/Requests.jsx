@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import useAsync from '../hooks/useAsync';
 import dataService from '../lib/dataService';
 import RequestCard from '../components/RequestCard';
+import BrowseTabs from '../components/BrowseTabs';
 import { EmptyState, InlineLoader, ErrorState } from '../components/ui';
 import { BLOOD_TYPES, REGIONS, REQUEST_STATUS } from '../lib/constants';
 
@@ -25,16 +26,20 @@ export default function Requests() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-cream">Blood donation requests</h1>
-          <p className="mt-1 text-sm text-cream/65">
-            All requests are visible to signed-in users. Choose one to view details and message the requester.
-          </p>
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-bold text-cream">Blood donation requests</h1>
+            <p className="mt-1 text-sm text-cream/65">
+              All requests are visible to signed-in users. Choose one to view details and message the requester.
+            </p>
+          </div>
+          <Link to="/requests/new" className="btn-primary">
+            + New request
+          </Link>
         </div>
-        <Link to="/requests/new" className="btn-primary">
-          + New request
-        </Link>
+        {/* v3: browse requests or browse donors who offered to donate */}
+        <BrowseTabs />
       </div>
 
       {/* Filters */}

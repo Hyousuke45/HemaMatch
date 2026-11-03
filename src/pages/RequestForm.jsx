@@ -196,7 +196,7 @@ export default function RequestForm() {
 
         {/* Mobile: actions stay pinned above the tab bar while scrolling
             the form; desktop keeps the normal in-card footer. */}
-        <div className="sticky bottom-20 z-30 -mx-6 flex flex-col gap-2 border-t border-cream/10 bg-blood/95 px-6 pb-4 pt-3 backdrop-blur md:static md:mx-0 md:flex-row md:justify-end md:border-0 md:bg-transparent md:p-0 md:pt-0">
+        <div className="sticky bottom-20 z-30 -mx-6 flex flex-col gap-2 border-t border-cream/10 bg-night/95 px-6 pb-4 pt-3 backdrop-blur md:static md:mx-0 md:flex-row md:justify-end md:border-0 md:bg-transparent md:p-0 md:pt-0">
           <button type="button" className="btn-secondary w-full md:w-auto" onClick={() => navigate(-1)} disabled={busy}>
             Cancel
           </button>

@@ -1,14 +1,24 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useRef, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Alert, StatusBadge } from '../components/ui';
+import { Alert, Avatar, StatusBadge } from '../components/ui';
 import dataService from '../lib/dataService';
+import { isCloudinaryConfigured, uploadAvatar, validateImageFile } from '../lib/cloudinary';
 import { BLOOD_TYPES, REGIONS } from '../lib/constants';
 import { formatDate } from '../lib/utils';
 
 // Donor profile page. Users may edit ONLY their own profile — the backend
 // enforces this ([RLS mirror] "profiles update own row"), so editing
 // someone else's row is impossible even with crafted requests.
+//
+// v3 — PROFILE PHOTO:
+//   Upload path  : Cloudinary UNSIGNED preset (no secret in the browser;
+//                  see src/lib/cloudinary.js for the 2-minute setup).
+//   Fallback path: paste an image URL directly, so the feature works in
+//                  the demo even before Cloudinary is configured.
+//   The stored value is just an https URL on the profile row
+//   (profiles.avatar_url) — swappable for Supabase Storage later
+//   without touching any other component.
 export default function Profile() {
   const { user, refreshUser, logout } = useAuth();
   const navigate = useNavigate();
@@ -21,11 +31,48 @@ export default function Profile() {
     city: p.city || '',
     is_available: Boolean(p.is_available)
   });
+  const [avatarUrl, setAvatarUrl] = useState(p.avatar_url || '');
+  const [photoError, setPhotoError] = useState(null);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef(null);
   const [feedback, setFeedback] = useState(null); // { tone, message }
   const [busy, setBusy] = useState(false);
 
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
 
+  // ---- Photo handling ----
+  const handleFileChosen = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = ''; // allow re-picking the same file
+    if (!file) return;
+    setPhotoError(null);
+    const validationError = validateImageFile(file);
+    if (validationError) {
+      setPhotoError(validationError);
+      return;
+    }
+    setUploading(true);
+    try {
+      const url = await uploadAvatar(file);
+      setAvatarUrl(url);
+      setFeedback({
+        tone: 'info',
+        message: 'Photo uploaded — press "Save profile" to apply it.'
+      });
+    } catch (err) {
+      setPhotoError(err?.message || 'Upload failed. Please try again.');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const removePhoto = () => {
+    setAvatarUrl('');
+    setPhotoError(null);
+    setFeedback({ tone: 'info', message: 'Photo removed — press "Save profile" to apply.' });
+  };
+
+  // ---- Form submit ----
   const handleSubmit = async (e) => {
     e.preventDefault();
     setFeedback(null);
@@ -36,7 +83,8 @@ export default function Profile() {
         blood_type: form.blood_type || null,
         region: form.region || null,
         city: form.city,
-        is_available: form.is_available
+        is_available: form.is_available,
+        avatar_url: avatarUrl || null
       });
       await refreshUser();
       setFeedback({ tone: 'success', message: 'Profile saved.' });
@@ -59,13 +107,83 @@ export default function Profile() {
         <div className="grid gap-4 border-b border-cream/10 pb-5 sm:grid-cols-2">
           <div>
             <label className="label">Email (read-only)</label>
-            <input className="input bg-night" value={user.email} disabled readOnly />
+            <input className="input bg-ink" value={user.email} disabled readOnly />
           </div>
           <div className="flex items-end gap-2 pb-1">
             <label className="label">Account role</label>
             {p.role === 'admin' ? <StatusBadge status="verified" label="Administrator" /> : <StatusBadge status="routine" label="User" />}
             <span className="text-xs text-cream/45">since {formatDate(p.created_at)}</span>
           </div>
+        </div>
+
+        {/* ---- v3: Profile photo ---- */}
+        <div className="border-b border-cream/10 pb-5">
+          <span className="label">Profile photo</span>
+          <div className="flex flex-wrap items-center gap-5">
+            <Avatar name={form.full_name || '?'} src={avatarUrl || null} size="xl" />
+            <div className="flex flex-col gap-2">
+              {isCloudinaryConfigured ? (
+                <>
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    disabled={uploading}
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    {uploading ? 'Uploading…' : avatarUrl ? 'Change photo' : 'Upload photo'}
+                  </button>
+                  {avatarUrl && (
+                    <button type="button" className="btn-danger !min-h-9 !py-1.5" onClick={removePhoto}>
+                      Remove photo
+                    </button>
+                  )}
+                  <p className="max-w-xs text-xs text-cream/45">
+                    JPG, PNG, WEBP or GIF · up to 5 MB. Uploaded directly to Cloudinary —
+                    only the resulting image URL is stored on your profile.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <div className="w-full max-w-sm">
+                    <input
+                      className="input"
+                      type="url"
+                      value={avatarUrl}
+                      onChange={(e) => setAvatarUrl(e.target.value)}
+                      placeholder="Paste an image URL (https://…)"
+                      aria-label="Photo URL"
+                    />
+                  </div>
+                  {avatarUrl && (
+                    <button type="button" className="btn-danger !min-h-9 !py-1.5" onClick={removePhoto}>
+                      Remove photo
+                    </button>
+                  )}
+                  <p className="max-w-md text-xs leading-relaxed text-cream/45">
+                    Cloudinary is not configured yet — add{' '}
+                    <code className="text-cream/70">VITE_CLOUDINARY_CLOUD_NAME</code> and{' '}
+                    <code className="text-cream/70">VITE_CLOUDINARY_UPLOAD_PRESET</code> to{' '}
+                    <code className="text-cream/70">.env</code> to enable one-tap photo
+                    uploads (free account; see README step 3c). Until then you can paste an
+                    image URL above.
+                  </p>
+                </>
+              )}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/gif"
+                className="hidden"
+                onChange={handleFileChosen}
+                aria-label="Choose a profile photo"
+              />
+            </div>
+          </div>
+          {photoError && (
+            <div className="mt-3">
+              <Alert tone="error">{photoError}</Alert>
+            </div>
+          )}
         </div>
 
         <div>
@@ -124,7 +242,8 @@ export default function Profile() {
             <span className="block text-sm font-semibold text-cream">I am currently available to donate</span>
             <span className="mt-0.5 block text-xs text-cream/65">
               Unavailable donors are excluded from matching results. You can toggle this anytime —
-              it is not a commitment to donate.
+              it is not a commitment to donate. If you have a donor listing, pausing this also
+              pauses the listing (they always stay in sync).
             </span>
           </span>
         </label>
@@ -138,8 +257,23 @@ export default function Profile() {
         </div>
       </form>
 
+      {/* v3 — donor listing shortcut */}
+      <Link to="/donate" className="card mt-4 flex items-center justify-between gap-4 p-5 transition-colors hover:border-gold/40">
+        <span>
+          <span className="block font-semibold text-cream">Offer to donate blood</span>
+          <span className="mt-0.5 block text-sm text-cream/65">
+            Manage your voluntary donor listing — open or paused anytime.
+          </span>
+        </span>
+        <span className="text-gold" aria-hidden="true">
+          <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+          </svg>
+        </span>
+      </Link>
+
       <p className="mt-4 text-xs leading-relaxed text-cream/45">
-        Privacy: other signed-in users can only see your name, blood type, general location and
+        Privacy: other signed-in users can only see your name, photo, blood type, general location and
         availability — never your email address. Private communication happens exclusively
         through in-app messaging.
       </p>

@@ -9,6 +9,7 @@ import { formatDate } from '../lib/utils';
 export default function Dashboard() {
   const { user } = useAuth();
   const { data: myRequests, loading, error } = useAsync(() => dataService.getMyRequests());
+  const { data: myOffer, loading: offerLoading } = useAsync(() => dataService.getMyOffer(), []);
 
   const p = user.profile;
 
@@ -16,7 +17,7 @@ export default function Dashboard() {
     <div className="flex flex-col gap-8">
       {/* Welcome */}
       <div className="flex items-center gap-4">
-        <Avatar name={p.full_name} size="lg" />
+        <Avatar name={p.full_name} src={p.avatar_url} size="lg" />
         <div>
           <h1 className="text-2xl font-bold text-cream">Welcome, {p.full_name.split(' ')[0]}!</h1>
           <p className="text-sm text-cream/65">Member since {formatDate(p.created_at)}</p>
@@ -49,16 +50,34 @@ export default function Dashboard() {
                   Add your blood type and location so you appear in matching results.
                 </p>
               )}
+              {/* v3: donor listing status */}
+              <p className="mt-1 text-xs text-cream/45">
+                {offerLoading
+                  ? 'Checking your donor listing…'
+                  : myOffer
+                    ? myOffer.status === 'open'
+                      ? 'Your donor listing is open — requesters can find you.'
+                      : 'Your donor listing is paused — you are hidden from donors and matching.'
+                    : 'No donor listing yet — offer to donate from the Donate page.'}{' '}
+                <Link to="/donate" className="font-medium text-gold hover:underline">
+                  Manage listing
+                </Link>
+              </p>
             </div>
           </div>
-          <Link to="/profile" className="btn-secondary">
-            {p.blood_type ? 'Edit profile' : 'Complete profile'}
-          </Link>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <Link to="/profile" className="btn-secondary">
+              {p.blood_type ? 'Edit profile' : 'Complete profile'}
+            </Link>
+            <Link to="/donors" className="btn-secondary">
+              Find donors
+            </Link>
+          </div>
         </div>
       </section>
 
       {/* Quick actions — big tappable cards, icon + one-line purpose */}
-      <section className="grid gap-4 sm:grid-cols-3">
+      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Link to="/requests/new" className="card p-5 transition-colors hover:border-gold/40">
           <span className="flex items-center gap-2 font-semibold text-cream">
             <svg className="h-5 w-5 text-gold" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
@@ -67,6 +86,22 @@ export default function Dashboard() {
             Request blood
           </span>
           <p className="mt-1 text-sm text-cream/65">Create a donation request for a patient in need.</p>
+        </Link>
+        {/* v3 — the donate side is a first-class action, not just requesting */}
+        <Link to="/donate" className="card p-5 transition-colors hover:border-gold/40">
+          <span className="flex items-center gap-2 font-semibold text-cream">
+            <svg className="h-5 w-5 text-gold" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M12 21s-7-4.5-7-10a4 4 0 017-2.6A4 4 0 0119 11c0 5.5-7 10-7 10zM12 8v6m-3-3h6"
+              />
+            </svg>
+            Donate blood
+          </span>
+          <p className="mt-1 text-sm text-cream/65">
+            List yourself as a volunteer donor — open or paused anytime.
+          </p>
         </Link>
         <Link to="/requests" className="card p-5 transition-colors hover:border-gold/40">
           <span className="flex items-center gap-2 font-semibold text-cream">

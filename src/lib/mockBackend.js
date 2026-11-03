@@ -11,10 +11,12 @@
 // ============================================================
 
 import { createSeedDb } from './mockData';
-import { BLOOD_TYPES, REGIONS, donorTypesFor } from './constants';
+import { BLOOD_TYPES, REGIONS, OFFER_NOTE_MAX, donorTypesFor } from './constants';
 import { newId, nowIso, isValidEmail, validatePassword } from './utils';
 
-const DB_KEY = 'hemamatch_mock_db_v1';
+// v3: key bumped — the store now includes donation_offers + avatar_url
+// seed data (old stores re-seed automatically on first load).
+const DB_KEY = 'hemamatch_mock_db_v3';
 const LATENCY = 220;
 
 const delay = (ms = LATENCY) => new Promise((r) => setTimeout(r, ms));
@@ -163,6 +165,7 @@ async function register({ full_name, email, password }) {
       region: null,
       city: null,
       is_available: true,
+      avatar_url: null, // optional profile photo (Cloudinary URL in production)
       created_at: nowIso()
     }
   };
@@ -266,7 +269,36 @@ async function updateMyProfile(patch) {
     if (city.length > 60) throw new Error('City name too long.');
     p.city = city || null;
   }
-  if (patch.is_available !== undefined) p.is_available = Boolean(patch.is_available);
+  if (patch.avatar_url !== undefined) {
+    const url = patch.avatar_url === null || patch.avatar_url === '' ? null : String(patch.avatar_url).trim();
+    if (url && (!/^https?:\/\//i.test(url) || url.length > 500))
+      throw new Error('Photo must be a valid image URL (https://…) of at most 500 characters.');
+    p.avatar_url = url;
+  }
+  if (patch.is_available !== undefined) {
+    const next = Boolean(patch.is_available);
+    if (next !== p.is_available) {
+      p.is_available = next;
+      // Keep the donation listing consistent with availability
+      // [RLS mirror] SQL trigger sync_offer_with_availability does this in Phase 2
+      const d = getDb();
+      const offer = d.donation_offers.find((o) => o.donor_id === u.id);
+      if (offer) {
+        const nextStatus = next ? 'open' : 'paused';
+        if (offer.status !== nextStatus) {
+          const from = offer.status;
+          offer.status = nextStatus;
+          offer.updated_at = nowIso();
+          log(
+            'offer.status_changed',
+            'donation_offers',
+            offer.id,
+            `Donor listing changed from ${from} to ${nextStatus} (availability toggle).`
+          );
+        }
+      }
+    }
+  }
 
   // role is IGNORED on purpose: a user must never change their own role.
   if (patch.role !== undefined && patch.role !== p.role)
@@ -275,6 +307,135 @@ async function updateMyProfile(patch) {
   log('profile.updated', 'profiles', u.id, 'Donor profile updated.');
   save();
   return { ...p };
+}
+
+// ============================================================
+// PUBLIC PROFILE (directory-safe view of another user)
+// Shown ONLY from the blood-donation-request detail page (client
+// requirement): view the requester or a matched donor. Never exposes
+// email, password or role — only what the donor directory already
+// shows, plus aggregated donation history.
+// [RLS mirror] Phase 2: security-definer RPC get_public_profile()
+// ============================================================
+
+async function getPublicProfile(userId) {
+  await delay(120);
+  requireVerified();
+  const target = findProfile(userId);
+  if (!target) throw new Error('User not found.');
+  const d = getDb();
+  const successful = d.donation_records.filter(
+    (r) => r.donor_id === userId && r.outcome === 'successful'
+  ).length;
+  const openOffer = d.donation_offers.find((o) => o.donor_id === userId && o.status === 'open');
+  return {
+    id: target.id,
+    full_name: target.full_name,
+    blood_type: target.blood_type,
+    region: target.region,
+    city: target.city,
+    is_available: target.is_available,
+    avatar_url: target.avatar_url || null,
+    created_at: target.created_at,
+    successful_donations: successful,
+    offer_note: openOffer ? openOffer.note : null
+  };
+}
+
+// ============================================================
+// DONATION OFFERS (the "donate" side of the app)
+// One listing per donor; 'open' listings appear in the donor
+// directory AND in request matching. Availability stays in sync in
+// both directions (see updateMyProfile above / upsertMyOffer below).
+// [RLS mirror] Phase 2: donation_offers table + upsert_my_offer RPC
+// ============================================================
+
+function joinOffer(o) {
+  const p = findProfile(o.donor_id);
+  return {
+    ...o,
+    id: o.donor_id, // the USER id — callers use donor.id to start conversations
+    offer_id: o.id, // the listing id (kept for reference)
+    full_name: p?.full_name ?? 'Unknown',
+    blood_type: p?.blood_type ?? null,
+    region: p?.region ?? null,
+    city: p?.city ?? null,
+    avatar_url: p?.avatar_url ?? null,
+    member_since: p?.created_at ?? null
+  };
+}
+
+async function getMyOffer() {
+  await delay(80);
+  const u = requireVerified();
+  const offer = getDb().donation_offers.find((o) => o.donor_id === u.id);
+  return offer ? { ...offer } : null;
+}
+
+// [RLS mirror] RPC upsert_my_offer(p_note, p_status): validates the
+// profile is complete, upserts the listing, syncs availability.
+async function upsertMyOffer({ note, status }) {
+  await delay();
+  const u = requireVerified();
+  const p = u.profile;
+  if (!['open', 'paused'].includes(status)) throw new Error('Invalid listing status.');
+  const cleanNote = String(note || '').trim();
+  if (cleanNote.length > OFFER_NOTE_MAX)
+    throw new Error(`Note is too long (max ${OFFER_NOTE_MAX} characters).`);
+  if (status === 'open' && (!p.blood_type || !p.region))
+    throw new Error('Set your blood type and region in your profile before listing yourself as a donor.');
+
+  const d = getDb();
+  let offer = d.donation_offers.find((o) => o.donor_id === u.id);
+  const isNew = !offer;
+  if (isNew) {
+    offer = { id: newId('o'), donor_id: u.id, created_at: nowIso() };
+    d.donation_offers.push(offer);
+  }
+  const from = offer.status;
+  offer.note = cleanNote;
+  offer.status = status;
+  offer.updated_at = nowIso();
+
+  // One source of truth for "listed": the availability flag follows the offer
+  // [RLS mirror] performed inside upsert_my_offer() in Phase 2
+  if (p.is_available !== (status === 'open')) {
+    p.is_available = status === 'open';
+  }
+
+  log(
+    isNew ? 'offer.created' : 'offer.status_changed',
+    'donation_offers',
+    offer.id,
+    isNew
+      ? `Donor listing created (${status}).`
+      : `Donor listing changed from ${from} to ${status}.`
+  );
+  save();
+  return { ...offer };
+}
+
+// Donor directory: every OPEN listing, joined with directory-safe
+// profile fields. The signed-in user never sees themselves here.
+async function listDonors(filters = {}) {
+  await delay();
+  const u = requireVerified();
+  const d = getDb();
+  let rows = d.donation_offers.filter((o) => o.status === 'open').map(joinOffer);
+
+  rows = rows.filter((r) => r.donor_id !== u.id);
+  if (filters.blood_type) rows = rows.filter((r) => r.blood_type === filters.blood_type);
+  if (filters.region) rows = rows.filter((r) => r.region === filters.region);
+
+  // Same-region donors first (ranking hint, mirroring the matching page)
+  const myRegion = u.profile.region;
+  rows.sort((a, b) => {
+    const aSame = myRegion && a.region === myRegion ? 1 : 0;
+    const bSame = myRegion && b.region === myRegion ? 1 : 0;
+    if (aSame !== bSame) return bSame - aSame;
+    return new Date(b.created_at) - new Date(a.created_at);
+  });
+  return rows;
 }
 
 // ============================================================
@@ -288,6 +449,7 @@ function joinRequest(r) {
   return {
     ...r,
     requester_name: requester?.full_name ?? 'Unknown',
+    requester_avatar_url: requester?.avatar_url ?? null,
     hospital_name: hospital?.name ?? null,
     hospital_status: hospital?.status ?? null
   };
@@ -497,6 +659,7 @@ async function getMatches(requestId) {
       blood_type: x.profile.blood_type,
       region: x.profile.region,
       city: x.profile.city,
+      avatar_url: x.profile.avatar_url || null,
       same_region: x.profile.region === r.region, // ranking hint, not a hard filter
       created_at: x.profile.created_at
     }))
@@ -544,6 +707,7 @@ async function listConversations() {
       other_user_id: otherId,
       other_name: other?.full_name ?? 'Unknown',
       other_blood_type: other?.blood_type ?? null,
+      other_avatar_url: other?.avatar_url ?? null,
       request_id: c.request_id,
       request_blood_type: req?.blood_type ?? null,
       request_status: req?.status ?? null,
@@ -801,6 +965,7 @@ async function getStats() {
   return {
     total_users: d.users.length,
     available_donors: donors,
+    open_offers: d.donation_offers.filter((o) => o.status === 'open').length,
     requests: {
       total: d.requests.length,
       pending: count((r) => r.status === 'pending'),
@@ -857,6 +1022,12 @@ export default {
   // profile
   getMyProfile,
   updateMyProfile,
+  getPublicProfile,
+
+  // donation offers ("donate" side)
+  getMyOffer,
+  upsertMyOffer,
+  listDonors,
 
   // requests & matching
   listRequests,

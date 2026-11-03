@@ -17,7 +17,7 @@
 // ============================================================
 
 import { supabase, isSupabaseConfigured } from './supabaseClient';
-import { BLOOD_TYPES, REGIONS, donorTypesFor } from './constants';
+import { BLOOD_TYPES, REGIONS, OFFER_NOTE_MAX, donorTypesFor } from './constants';
 import { isValidEmail, validatePassword } from './utils';
 
 // ---------- helpers ----------
@@ -71,6 +71,7 @@ function mapAuthUser(authUser, profile) {
     region: null,
     city: null,
     is_available: true,
+    avatar_url: null,
     created_at: authUser.created_at
   };
   return {
@@ -87,13 +88,14 @@ function mapRequest(r) {
   return {
     ...r,
     requester_name: r.requester?.full_name ?? 'Unknown',
+    requester_avatar_url: r.requester?.avatar_url ?? null,
     hospital_name: r.hospital?.name ?? null,
     hospital_status: r.hospital?.status ?? null
   };
 }
 
 const REQUEST_SELECT =
-  '*, requester:profiles!donation_requests_requester_id_fkey(full_name), hospital:hospitals!donation_requests_hospital_id_fkey(name, status)';
+  '*, requester:profiles!donation_requests_requester_id_fkey(full_name, avatar_url), hospital:hospitals!donation_requests_hospital_id_fkey(name, status)';
 
 // ============================================================
 // AUTHENTICATION (Supabase Auth — passwords are hashed by Supabase;
@@ -238,7 +240,17 @@ async function updateMyProfile(patch) {
     if (city.length > 60) throw new Error('City name too long.');
     clean.city = city || null;
   }
-  if (patch.is_available !== undefined) clean.is_available = Boolean(patch.is_available);
+  if (patch.avatar_url !== undefined) {
+    const url = patch.avatar_url === null || patch.avatar_url === '' ? null : String(patch.avatar_url).trim();
+    if (url && (!/^https?:\/\//i.test(url) || url.length > 500))
+      throw new Error('Photo must be a valid image URL (https://…) of at most 500 characters.');
+    clean.avatar_url = url;
+  }
+  if (patch.is_available !== undefined) {
+    clean.is_available = Boolean(patch.is_available);
+    // The sync_offer_with_availability trigger keeps the donation
+    // listing consistent with this flag — one source of truth.
+  }
 
   // role is IGNORED on purpose: a user must never change their own role.
   if (patch.role !== undefined && patch.role !== current?.role)
@@ -247,6 +259,96 @@ async function updateMyProfile(patch) {
   const { data, error } = await sb().from('profiles').update(clean).eq('id', uid).select().single();
   if (error) throw fail(error, 'Could not save profile.');
   return data;
+}
+
+// ============================================================
+// PUBLIC PROFILE (directory-safe view of another user; shown only
+// from the request detail page). Server-side RPC aggregates the
+// successful-donation count without exposing donation_records rows.
+// ============================================================
+
+async function getPublicProfile(userId) {
+  await requireUid();
+  const { data, error } = await sb().rpc('get_public_profile', { p_user_id: userId });
+  if (error) throw fail(error, 'Could not load this profile.');
+  if (!data) throw new Error('User not found.');
+  return data;
+}
+
+// ============================================================
+// DONATION OFFERS (the "donate" side)
+// RLS: authenticated may read; donors may write ONLY their own row.
+// Writes go through the upsert_my_offer RPC (validation + availability
+// sync + audit logging happen server-side).
+// ============================================================
+
+async function getMyOffer() {
+  const uid = await requireUid();
+  const { data, error } = await sb()
+    .from('donation_offers')
+    .select('*')
+    .eq('donor_id', uid)
+    .maybeSingle();
+  if (error) throw fail(error, 'Could not load your donor listing.');
+  return data ?? null;
+}
+
+async function upsertMyOffer({ note, status }) {
+  await requireUid();
+  if (!['open', 'paused'].includes(status)) throw new Error('Invalid listing status.');
+  const cleanNote = String(note || '').trim();
+  if (cleanNote.length > OFFER_NOTE_MAX)
+    throw new Error(`Note is too long (max ${OFFER_NOTE_MAX} characters).`);
+
+  const { data, error } = await sb().rpc('upsert_my_offer', {
+    p_note: cleanNote,
+    p_status: status
+  });
+  if (error) throw fail(error, 'Could not save your donor listing.');
+  return data;
+}
+
+// Donor directory: OPEN listings joined with directory-safe profile
+// fields. Same-region donors first (client-side ranking hint).
+async function listDonors(filters = {}) {
+  const uid = await requireUid();
+  const { data, error } = await sb()
+    .from('donation_offers')
+    .select(
+      '*, donor:profiles!donation_offers_donor_id_fkey(id, full_name, blood_type, region, city, avatar_url, created_at)'
+    )
+    .eq('status', 'open')
+    .order('created_at', { ascending: false });
+  if (error) throw fail(error, 'Could not load the donor directory.');
+
+  let rows = (data || [])
+    .filter((o) => o.donor && o.donor.id !== uid)
+    .map((o) => ({
+      id: o.donor.id,
+      offer_id: o.id,
+      full_name: o.donor.full_name,
+      blood_type: o.donor.blood_type,
+      region: o.donor.region,
+      city: o.donor.city,
+      avatar_url: o.donor.avatar_url ?? null,
+      note: o.note,
+      status: o.status,
+      created_at: o.created_at,
+      updated_at: o.updated_at,
+      member_since: o.donor.created_at
+    }));
+  if (filters.blood_type) rows = rows.filter((r) => r.blood_type === filters.blood_type);
+  if (filters.region) rows = rows.filter((r) => r.region === filters.region);
+
+  const { data: me } = await sb().from('profiles').select('region').eq('id', uid).maybeSingle();
+  const myRegion = me?.region;
+  rows.sort((a, b) => {
+    const aSame = myRegion && a.region === myRegion ? 1 : 0;
+    const bSame = myRegion && b.region === myRegion ? 1 : 0;
+    if (aSame !== bSame) return bSame - aSame;
+    return new Date(b.created_at) - new Date(a.created_at);
+  });
+  return rows;
 }
 
 // ============================================================
@@ -434,12 +536,12 @@ async function listConversations() {
   const rows = convs || [];
   if (rows.length === 0) return [];
 
-  // Other participants (names + blood types)
+  // Other participants (names + blood types + photos)
   const otherIds = rows
     .map((c) => c.participants?.find((p) => p.user_id !== uid)?.user_id)
     .filter(Boolean);
   const { data: others } = otherIds.length
-    ? await sb().from('profiles').select('id, full_name, blood_type').in('id', otherIds)
+    ? await sb().from('profiles').select('id, full_name, blood_type, avatar_url').in('id', otherIds)
     : { data: [] };
   const otherMap = new Map((others || []).map((o) => [o.id, o]));
 
@@ -473,6 +575,7 @@ async function listConversations() {
       other_user_id: otherId,
       other_name: other?.full_name ?? 'Unknown',
       other_blood_type: other?.blood_type ?? null,
+      other_avatar_url: other?.avatar_url ?? null,
       request_id: c.request_id,
       request_blood_type: req?.blood_type ?? null,
       request_status: req?.status ?? null,
@@ -674,6 +777,7 @@ async function listUsers() {
       region: u.region,
       city: u.city,
       is_available: u.is_available,
+      avatar_url: u.avatar_url ?? null,
       created_at: u.created_at
     }
   }));
@@ -746,6 +850,12 @@ export default {
   // profile
   getMyProfile,
   updateMyProfile,
+  getPublicProfile,
+
+  // donation offers ("donate" side)
+  getMyOffer,
+  upsertMyOffer,
+  listDonors,
 
   // requests & matching
   listRequests,

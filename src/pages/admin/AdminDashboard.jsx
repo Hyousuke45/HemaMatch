@@ -21,9 +21,10 @@ export default function AdminDashboard() {
         <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-cream/45">
           Accounts
         </h2>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
           <StatCard label="Registered users" value={stats.total_users} hint="All accounts" />
           <StatCard label="Available donors" value={stats.available_donors} tone="red" hint="Profile complete + available" />
+          <StatCard label="Open donor listings" value={stats.open_offers} tone="sky" hint="Volunteers on the Donate page" />
           <StatCard label="Conversations" value={stats.conversations} hint="Private 1:1 chats" />
           <StatCard label="Verified hospitals" value={stats.hospitals.verified} tone="green" hint={`${stats.hospitals.pending} pending review`} />
         </div>

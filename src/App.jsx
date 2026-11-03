@@ -15,6 +15,8 @@ import Profile from './pages/Profile';
 import Requests from './pages/Requests';
 import RequestForm from './pages/RequestForm';
 import RequestDetail from './pages/RequestDetail';
+import Donate from './pages/Donate';
+import Donors from './pages/Donors';
 import Messages from './pages/Messages';
 import Hospitals from './pages/Hospitals';
 import NotFound from './pages/NotFound';
@@ -96,6 +98,23 @@ export default function App() {
               element={
                 <ProtectedRoute>
                   <RequestForm />
+                </ProtectedRoute>
+              }
+            />
+            {/* v3 — the "donate" side: my listing + the donor directory */}
+            <Route
+              path="/donate"
+              element={
+                <ProtectedRoute>
+                  <Donate />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/donors"
+              element={
+                <ProtectedRoute>
+                  <Donors />
                 </ProtectedRoute>
               }
             />

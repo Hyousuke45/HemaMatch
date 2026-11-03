@@ -4,12 +4,16 @@ import { useAuth } from '../context/AuthContext';
 import useAsync from '../hooks/useAsync';
 import dataService from '../lib/dataService';
 import DonorCard from '../components/DonorCard';
+import PublicProfileSheet from '../components/PublicProfileSheet';
 import { Alert, Avatar, BloodTypeBadge, ConfirmDialog, ErrorState, InlineLoader, PageLoader, StatusBadge } from '../components/ui';
 import { formatDate, formatDateTime } from '../lib/utils';
 import { MATCHING_DISCLAIMER, URGENCY } from '../lib/constants';
 
 // Request detail page: information, status actions, preliminary matching
 // (requester + admin only), and the recorded outcome (admin records).
+// v3: the requester and each matched donor can be viewed through a
+// directory-safe profile sheet — this is the ONLY place profile views
+// exist (client requirement), so no standalone public profile pages.
 export default function RequestDetail() {
   const { id } = useParams();
   const { user, isAdmin } = useAuth();
@@ -28,6 +32,7 @@ export default function RequestDetail() {
   const [confirm, setConfirm] = useState(null); // { kind, title, message, action, requireReason, danger }
   const [actionError, setActionError] = useState(null);
   const [busyAction, setBusyAction] = useState(false);
+  const [viewProfileId, setViewProfileId] = useState(null); // v3 profile sheet
 
   const isOwner = request && request.requester_id === user.id;
 
@@ -120,9 +125,16 @@ export default function RequestDetail() {
             <div>
               <dt className="text-cream/45">Requester</dt>
               <dd className="mt-0.5 flex items-center gap-2 font-medium text-cream">
-                <Avatar name={request.requester_name} size="sm" />
+                <Avatar name={request.requester_name} src={request.requester_avatar_url} size="sm" />
                 {request.requester_name}
                 {isOwner && <span className="text-xs font-semibold text-gold">(you)</span>}
+                <button
+                  type="button"
+                  className="text-xs font-semibold text-gold hover:underline"
+                  onClick={() => setViewProfileId(request.requester_id)}
+                >
+                  View profile
+                </button>
               </dd>
             </div>
             <div>
@@ -188,7 +200,7 @@ export default function RequestDetail() {
 
             {/* Admin corrections */}
             {isAdmin && request.status !== 'completed' && request.status !== 'cancelled' && (
-              <div className="flex w-full flex-wrap items-center gap-2 rounded-lg bg-night p-3">
+              <div className="flex w-full flex-wrap items-center gap-2 rounded-lg border border-cream/10 bg-ink p-3">
                 <span className="text-xs font-semibold uppercase tracking-wide text-cream/45">
                   Admin controls
                 </span>
@@ -284,6 +296,7 @@ export default function RequestDetail() {
                       key={d.id}
                       donor={d}
                       onMessage={(donor) => startConversationWith(donor.id)}
+                      onViewProfile={(donor) => setViewProfileId(donor.id)}
                     />
                   ))}
                 </div>
@@ -292,6 +305,17 @@ export default function RequestDetail() {
           </section>
         )}
       </div>
+
+      {/* v3 — directory-safe profile sheet (request-detail only) */}
+      <PublicProfileSheet
+        userId={viewProfileId}
+        onClose={() => setViewProfileId(null)}
+        onMessage={(profile) => {
+          setViewProfileId(null);
+          startConversationWith(profile.id);
+        }}
+        messageLabel="Message"
+      />
 
       <ConfirmDialog
         open={Boolean(confirm)}

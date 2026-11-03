@@ -36,6 +36,7 @@ export function createSeedDb() {
         region: 'NCR (Metro Manila)',
         city: 'Quezon City',
         is_available: true,
+        avatar_url: 'https://api.dicebear.com/9.x/avataaars/svg?seed=Maria%20Santos&backgroundColor=c1912f',
         created_at: '2026-09-03T10:15:00'
       }
     },
@@ -52,6 +53,7 @@ export function createSeedDb() {
         region: 'Region IV-A (CALABARZON)',
         city: 'Antipolo',
         is_available: true,
+        avatar_url: 'https://api.dicebear.com/9.x/avataaars/svg?seed=Juan%20Dela%20Cruz&backgroundColor=b6452c',
         created_at: '2026-09-05T14:30:00'
       }
     },
@@ -68,6 +70,7 @@ export function createSeedDb() {
         region: 'NCR (Metro Manila)',
         city: 'Makati',
         is_available: true,
+        avatar_url: 'https://api.dicebear.com/9.x/avataaars/svg?seed=Angela%20Reyes&backgroundColor=8a3033',
         created_at: '2026-09-08T09:00:00'
       }
     },
@@ -99,7 +102,8 @@ export function createSeedDb() {
         blood_type: 'AB-',
         region: 'Region III (Central Luzon)',
         city: 'San Fernando',
-        is_available: true,
+        is_available: false, // paused donation listing (sync rule: paused offer = not listed)
+        avatar_url: 'https://api.dicebear.com/9.x/avataaars/svg?seed=Miguel%20Lopez&backgroundColor=4d5e5a',
         created_at: '2026-09-12T16:20:00'
       }
     },
@@ -116,6 +120,7 @@ export function createSeedDb() {
         region: 'Region VI (Western Visayas)',
         city: 'Iloilo City',
         is_available: true,
+        avatar_url: 'https://api.dicebear.com/9.x/avataaars/svg?seed=Cristina%20Flores&backgroundColor=946b2d',
         created_at: '2026-09-15T08:40:00'
       }
     },
@@ -164,6 +169,7 @@ export function createSeedDb() {
         region: 'Region IV-A (CALABARZON)',
         city: 'Bacoor',
         is_available: true,
+        avatar_url: 'https://api.dicebear.com/9.x/avataaars/svg?seed=Paolo%20Villanueva&backgroundColor=6b8e9e',
         created_at: '2026-10-01T10:10:00'
       }
     },
@@ -398,6 +404,64 @@ export function createSeedDb() {
     }
   ];
 
+  // ============================================================
+  // DONATION OFFERS ("donate" side)
+  // One voluntary listing per donor. status 'open' = listed in the
+  // donor directory AND included in request matching; 'paused' = hidden
+  // from both. profiles.is_available is kept in sync by the backend
+  // (mock logic here, trigger + RPC in schema.sql).
+  // ============================================================
+  const donation_offers = [
+    {
+      id: 'o-001',
+      donor_id: 'u-002', // Maria (O-, Quezon City)
+      note: 'Universal donor (O-) here. I usually donate on weekends — Quezon City or nearby Manila blood banks. Message me anytime.',
+      status: 'open',
+      created_at: '2026-09-20T09:00:00',
+      updated_at: '2026-09-20T09:00:00'
+    },
+    {
+      id: 'o-002',
+      donor_id: 'u-003', // Juan (A+, Antipolo)
+      note: 'Willing to travel within CALABARZON and nearby Metro Manila hospitals. Prefer weekends.',
+      status: 'open',
+      created_at: '2026-09-22T15:30:00',
+      updated_at: '2026-09-22T15:30:00'
+    },
+    {
+      id: 'o-003',
+      donor_id: 'u-004', // Angela (B+, Makati)
+      note: 'Available weekday mornings. Regular donor at St. Mary General Hospital blood bank.',
+      status: 'open',
+      created_at: '2026-10-02T11:15:00',
+      updated_at: '2026-10-02T11:15:00'
+    },
+    {
+      id: 'o-004',
+      donor_id: 'u-007', // Cristina (O+, Iloilo)
+      note: 'Based in Iloilo City — happy to help patients anywhere in Western Visayas.',
+      status: 'open',
+      created_at: '2026-10-04T08:20:00',
+      updated_at: '2026-10-04T08:20:00'
+    },
+    {
+      id: 'o-005',
+      donor_id: 'u-010', // Paolo (O-, Bacoor)
+      note: 'O- donor in Bacoor. I can reach Makati or Taguig hospitals with a day’s notice.',
+      status: 'open',
+      created_at: '2026-10-06T17:45:00',
+      updated_at: '2026-10-06T17:45:00'
+    },
+    {
+      id: 'o-006',
+      donor_id: 'u-006', // Miguel (AB-, Pampanga) — demonstrates the paused state
+      note: 'Pausing for now — back after my next eligibility date. Thank you!',
+      status: 'paused',
+      created_at: '2026-09-25T10:00:00',
+      updated_at: '2026-10-10T19:00:00'
+    }
+  ];
+
   // Admin outcome records ("transaction records" in this academic app)
   const donation_records = [
     {
@@ -493,6 +557,7 @@ export function createSeedDb() {
     conversations,
     conversation_participants,
     messages,
+    donation_offers,
     donation_records,
     activity_logs
   };

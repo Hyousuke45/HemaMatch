@@ -6,7 +6,7 @@ import { Avatar, StatusBadge } from './ui';
 import { classNames } from '../lib/utils';
 
 /* Mobile-first shell.
-   - Phones: sticky header + bottom tab bar (thumb-reachable, 5 max items),
+   - Phones: sticky header + bottom tab bar (thumb-reachable, 6 items),
      avatar taps straight into Profile. No hamburger menus to get lost in.
    - Desktop: top navigation + avatar dropdown, as before. */
 
@@ -34,6 +34,7 @@ const icon = (d) => (
 export const TabIcon = {
   home: icon('M2.25 12l8.95-7.15a1.5 1.5 0 011.8 0L21.75 12M4.5 9.75v9.75h15V9.75'),
   request: icon('M12 2.7C12 2.7 5.2 10.6 5.2 15.1a6.8 6.8 0 0013.6 0C18.8 10.6 12 2.7 12 2.7zM9.5 15.5a2.8 2.8 0 002.5 2.8'),
+  donate: icon('M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z'),
   chat: icon('M21 12a8.4 8.4 0 01-8.4 8.4c-1.3 0-2.6-.3-3.7-.9L3 21l1.6-4.6A8.4 8.4 0 1121 12zM8.8 11.5h6.4M8.8 14.7h4'),
   hospital: icon('M4.5 21V6.2A2.2 2.2 0 016.7 4h10.6a2.2 2.2 0 012.2 2.2V21M4.5 21h15M9.4 4V2.6M14.6 4V2.6M12 8.2v6m-3-3h6'),
   user: icon('M15.8 8.6a3.8 3.8 0 11-7.6 0 3.8 3.8 0 017.6 0zM4.8 20.4c.9-3.6 3.8-5.7 7.2-5.7s6.3 2.1 7.2 5.7'),
@@ -45,6 +46,7 @@ function BottomTabBar({ user, isAdmin }) {
   const tabs = [
     { to: '/dashboard', label: 'Home', icon: TabIcon.home },
     { to: '/requests', label: 'Requests', icon: TabIcon.request },
+    { to: '/donate', label: 'Donate', icon: TabIcon.donate },
     { to: '/messages', label: 'Messages', icon: TabIcon.chat },
     isAdmin
       ? { to: '/admin', label: 'Admin', icon: TabIcon.admin }
@@ -57,7 +59,7 @@ function BottomTabBar({ user, isAdmin }) {
       className="fixed inset-x-0 bottom-0 z-40 border-t border-cream/10 bg-ink/95 backdrop-blur md:hidden pb-safe"
       aria-label="Primary navigation"
     >
-      <div className="grid grid-cols-5">
+      <div className="grid grid-cols-6">
         {tabs.map((t) => (
           <NavLink
             key={t.to}
@@ -65,7 +67,7 @@ function BottomTabBar({ user, isAdmin }) {
             end={t.to === '/admin'}
             className={({ isActive }) =>
               classNames(
-                'flex min-h-[56px] flex-col items-center justify-center gap-0.5 px-1 py-2 text-[10px] font-semibold transition-colors',
+                'flex min-h-[56px] flex-col items-center justify-center gap-0.5 px-0.5 py-2 text-[10px] font-semibold transition-colors',
                 isActive ? 'text-gold' : 'text-cream/55'
               )
             }
@@ -82,6 +84,7 @@ function BottomTabBar({ user, isAdmin }) {
 const NAV_LINKS = [
   { to: '/dashboard', label: 'Dashboard' },
   { to: '/requests', label: 'Requests' },
+  { to: '/donate', label: 'Donate' },
   { to: '/messages', label: 'Messages' },
   { to: '/hospitals', label: 'Hospitals' }
 ];
@@ -103,7 +106,7 @@ export default function Layout() {
   const links = isAdmin ? [...NAV_LINKS, { to: '/admin', label: 'Admin' }] : NAV_LINKS;
 
   return (
-    <div className="flex min-h-screen flex-col bg-night">
+    <div className="flex min-h-screen flex-col bg-ink">
       {/* ---------- Header ---------- */}
       <header className="sticky top-0 z-40 border-b border-cream/10 bg-ink/95 backdrop-blur">
         <nav className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-3 px-4">
@@ -155,7 +158,7 @@ export default function Layout() {
                 aria-haspopup="menu"
                 aria-expanded={userMenuOpen}
               >
-                <Avatar name={user.profile.full_name} size="sm" />
+                <Avatar name={user.profile.full_name} src={user.profile.avatar_url} size="sm" />
                 <span className="max-w-[140px] truncate text-sm font-medium text-cream/85">
                   {user.profile.full_name}
                 </span>
@@ -198,7 +201,7 @@ export default function Layout() {
               className="md:hidden"
               aria-label="My profile"
             >
-              <Avatar name={user.profile.full_name} size="md" />
+              <Avatar name={user.profile.full_name} src={user.profile.avatar_url} size="md" />
             </NavLink>
           )}
         </nav>

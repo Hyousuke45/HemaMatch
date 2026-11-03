@@ -32,9 +32,15 @@ create table if not exists public.profiles (
   region text,
   city text,
   is_available boolean not null default true,
+  avatar_url text check (avatar_url is null or (avatar_url ~ '^https?://.' and char_length(avatar_url) <= 500)),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+-- v3 upgrade path: databases created with the v2 schema get the new
+-- column idempotently (fresh databases already have it above).
+alter table public.profiles add column if not exists avatar_url text
+  check (avatar_url is null or (avatar_url ~ '^https?://.' and char_length(avatar_url) <= 500));
 
 alter table public.profiles enable row level security;
 
@@ -584,6 +590,7 @@ create index if not exists idx_messages_conversation on public.messages(conversa
 create index if not exists idx_participants_user on public.conversation_participants(user_id);
 create index if not exists idx_hospitals_status on public.hospitals(status);
 create index if not exists idx_logs_created on public.activity_logs(created_at desc);
+create index if not exists idx_offers_status on public.donation_offers(status);
 
 -- ============================================================
 -- 9. HEMAMATCH PHASE 2 EXTENSIONS
@@ -753,6 +760,7 @@ begin
       'region', p.region,
       'city', p.city,
       'is_available', p.is_available,
+      'avatar_url', p.avatar_url,
       'created_at', p.created_at
     ) order by p.full_name)
     from public.profiles p
@@ -852,6 +860,7 @@ begin
     'total_users', (select count(*) from public.profiles),
     'available_donors', (select count(*) from public.profiles
                           where blood_type is not null and is_available),
+    'open_offers', (select count(*) from public.donation_offers where status = 'open'),
     'requests', jsonb_build_object(
       'total', (select count(*) from public.donation_requests),
       'pending', (select count(*) from public.donation_requests where status = 'pending'),
@@ -876,3 +885,212 @@ end;
 $$;
 
 grant execute on function public.admin_get_stats() to authenticated;
+
+-- ============================================================
+-- 10. HEMAMATCH v3 EXTENSIONS — donation offers + public profiles
+-- New in v3:
+--   donation_offers  — the "donate" side: one voluntary listing per
+--                      donor ('open' = listed + matched, 'paused' = hidden)
+--   upsert_my_offer()— the only write path; validates the profile and
+--                      keeps profiles.is_available in sync (one source
+--                      of truth for "listed")
+--   get_public_profile() — directory-safe profile + donation count,
+--                      shown ONLY from the request detail page
+--   sync_offer_with_availability trigger — the reverse sync: toggling
+--                      availability on the profile pauses/reopens the
+--                      listing, so the two can never disagree
+-- ============================================================
+
+-- 10.1 DONATION OFFERS table
+--      Voluntary, non-remunerated listings only. Under RA 7719 the
+--      commercial sale of blood is prohibited in the Philippines, so
+--      this schema has NO price/compensation columns anywhere.
+create table if not exists public.donation_offers (
+  id uuid primary key default gen_random_uuid(),
+  donor_id uuid not null unique references public.profiles(id) on delete cascade,
+  note text not null default '' check (char_length(note) <= 300),
+  status text not null default 'open' check (status in ('open', 'paused')),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+alter table public.donation_offers enable row level security;
+
+-- Donor directory: signed-in users may browse open listings.
+create policy "offers_select_authenticated"
+  on public.donation_offers for select to authenticated
+  using (true);
+
+-- Donors manage only their own listing.
+create policy "offers_insert_own"
+  on public.donation_offers for insert to authenticated
+  with check (donor_id = auth.uid());
+
+create policy "offers_update_own"
+  on public.donation_offers for update to authenticated
+  using (donor_id = auth.uid())
+  with check (donor_id = auth.uid());
+-- No DELETE policy: listings are paused, never erased (audit integrity).
+
+drop trigger if exists touch_updated_at on public.donation_offers;
+create trigger touch_updated_at
+  before update on public.donation_offers
+  for each row execute function public.set_updated_at();
+
+-- 10.2 Audit logging for listings (trigger-written, like every
+--      important change in HemaMatch).
+create or replace function public.log_offer_change()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if tg_op = 'INSERT' then
+    insert into public.activity_logs (actor_id, action, entity, entity_id, details)
+    values (new.donor_id, 'offer.created', 'donation_offers', new.id,
+            'Donor listing created (' || new.status || ').');
+  elsif new.status is distinct from old.status then
+    insert into public.activity_logs (actor_id, action, entity, entity_id, details)
+    values (new.donor_id, 'offer.status_changed', 'donation_offers', new.id,
+            'Donor listing changed from ' || old.status || ' to ' || new.status || '.');
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists offer_created_logged on public.donation_offers;
+create trigger offer_created_logged
+  after insert on public.donation_offers
+  for each row execute function public.log_offer_change();
+
+drop trigger if exists offer_change_logged on public.donation_offers;
+create trigger offer_change_logged
+  after update on public.donation_offers
+  for each row execute function public.log_offer_change();
+
+-- 10.3 Reverse sync: toggling availability on the PROFILE pauses/reopens
+--      the listing (the upsert_my_offer RPC does the forward sync).
+--      This trigger never touches profiles again, so there is no loop.
+create or replace function public.sync_offer_with_availability()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if new.is_available is distinct from old.is_available then
+    if not new.is_available then
+      update public.donation_offers
+        set status = 'paused', updated_at = now()
+        where donor_id = new.id and status = 'open';
+    else
+      update public.donation_offers
+        set status = 'open', updated_at = now()
+        where donor_id = new.id and status = 'paused';
+    end if;
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists sync_offer_on_availability on public.profiles;
+create trigger sync_offer_on_availability
+  after update of is_available on public.profiles
+  for each row execute function public.sync_offer_with_availability();
+
+-- 10.4 The ONLY write path for listings. Validates that the donor
+--      profile is complete (blood type + region required to be listed),
+--      upserts the single listing per donor, and syncs availability.
+create or replace function public.upsert_my_offer(p_note text, p_status text)
+returns public.donation_offers
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_profile public.profiles;
+  v_offer public.donation_offers;
+begin
+  if auth.uid() is null then
+    raise exception 'You must be signed in.';
+  end if;
+  if p_status not in ('open', 'paused') then
+    raise exception 'Invalid listing status.';
+  end if;
+
+  select * into v_profile from public.profiles where id = auth.uid();
+  if v_profile.id is null then
+    raise exception 'Profile not found.';
+  end if;
+  if p_status = 'open' and (v_profile.blood_type is null or v_profile.region is null) then
+    raise exception 'Set your blood type and region in your profile before listing yourself as a donor.';
+  end if;
+
+  insert into public.donation_offers (donor_id, note, status)
+  values (auth.uid(), left(coalesce(p_note, ''), 300), p_status)
+  on conflict (donor_id) do update
+    set note = excluded.note,
+        status = excluded.status,
+        updated_at = now()
+  returning * into v_offer;
+
+  -- Forward sync: availability follows the listing (the trigger in
+  -- 10.3 sees the same target state, so the two cannot disagree).
+  if v_profile.is_available <> (p_status = 'open') then
+    update public.profiles
+      set is_available = (p_status = 'open')
+      where id = auth.uid();
+  end if;
+
+  return v_offer;
+end;
+$$;
+
+grant execute on function public.upsert_my_offer(text, text) to authenticated;
+
+-- 10.5 Directory-safe public profile, shown ONLY from the request detail
+--      page (requester or a matched donor). Aggregates the successful-
+--      donation count server-side so donation_records rows are never
+--      exposed to unrelated users. Email and role are never returned.
+create or replace function public.get_public_profile(p_user_id uuid)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_profile public.profiles;
+  v_donations integer;
+  v_offer_note text;
+begin
+  if auth.uid() is null then
+    raise exception 'You must be signed in.';
+  end if;
+
+  select * into v_profile from public.profiles where id = p_user_id;
+  if v_profile.id is null then
+    raise exception 'User not found.';
+  end if;
+
+  select count(*) into v_donations from public.donation_records
+    where donor_id = p_user_id and outcome = 'successful';
+  select note into v_offer_note from public.donation_offers
+    where donor_id = p_user_id and status = 'open';
+
+  return jsonb_build_object(
+    'id', v_profile.id,
+    'full_name', v_profile.full_name,
+    'blood_type', v_profile.blood_type,
+    'region', v_profile.region,
+    'city', v_profile.city,
+    'is_available', v_profile.is_available,
+    'avatar_url', v_profile.avatar_url,
+    'created_at', v_profile.created_at,
+    'successful_donations', v_donations,
+    'offer_note', v_offer_note
+  );
+end;
+$$;
+
+grant execute on function public.get_public_profile(uuid) to authenticated;

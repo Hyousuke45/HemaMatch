@@ -91,7 +91,7 @@ function ChatWindow({ conversation }) {
             <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12l7.5-7.5M21 12H3.5" />
           </svg>
         </Link>
-        <Avatar name={conversation.other_name} size="md" />
+        <Avatar name={conversation.other_name} src={conversation.other_avatar_url} size="md" />
         <div className="min-w-0">
           <p className="truncate font-semibold text-cream">{conversation.other_name}</p>
           <p className="text-xs text-cream/55">
@@ -234,7 +234,7 @@ export default function Messages() {
                 }`}
               >
                 <div className="flex items-center gap-3">
-                  <Avatar name={c.other_name} size="sm" />
+                  <Avatar name={c.other_name} src={c.other_avatar_url} size="sm" />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between gap-2">
                       <p className="truncate text-sm font-semibold text-cream">{c.other_name}</p>

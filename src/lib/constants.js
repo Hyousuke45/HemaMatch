@@ -85,6 +85,31 @@ export const OUTCOMES = {
   failed: 'Failed'
 };
 
+// ============================================================
+// DONATION OFFERS ("donate" side of the app)
+// A donation offer is a donor's voluntary listing: "I am willing to
+// donate — here is when/how". One listing per donor.
+//   open   -> listed on the donor directory + included in matching
+//   paused -> hidden from both (e.g. recent donation, travel)
+// Keeping the offer in sync with profiles.is_available is a backend
+// responsibility in BOTH modes (mock logic / SQL trigger + RPC).
+// ============================================================
+export const OFFER_STATUS = {
+  open: 'Open',
+  paused: 'Paused'
+};
+
+export const OFFER_NOTE_MAX = 300;
+
+// IMPORTANT — legal note shown on the Donate page.
+// HemaMatch facilitates VOLUNTARY, NON-REMUNERATED donation only.
+// Under Republic Act No. 7719 (National Blood Services Act of 1994)
+// the Philippines promotes voluntary blood donation and prohibits
+// the commercial sale of blood — so this app deliberately has NO
+// selling feature, and no prices anywhere.
+export const DONATION_LAW_NOTE =
+  'Donation on HemaMatch is voluntary and non-remunerated. Under Republic Act No. 7719 (the National Blood Services Act of 1994), the commercial sale of blood is prohibited in the Philippines — HemaMatch therefore does not offer, and will never facilitate, paid or for-sale blood listings.';
+
 export const MATCHING_DISCLAIMER =
   'Preliminary matching only. Blood-type filtering does not determine medical compatibility, and a listed donor is not guaranteed to be medically eligible. Actual compatibility and donor screening are determined by qualified healthcare professionals.';
 

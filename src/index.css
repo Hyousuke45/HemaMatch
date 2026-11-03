@@ -2,10 +2,11 @@
 
 /* ============================================================
    HemaMatch design system — dark "blood thirst" theme
-   Client-provided palette:
-     #220c12  night   — page background (deep maroon-black)
-     #430102  blood   — card surfaces (dark blood red)
-     #000000  ink     — wells: overlays, table heads, admin bar
+   Client palette (v3: background is ALL BLACK, consistent
+   everywhere — page, header, footer, tab bar all #000000):
+     #000000  ink     — page background (black, everywhere)
+     #220c12  night   — card surfaces (subtle plum elevation)
+     #430102  blood   — accent only: blood-type badges, brand
      #ebe0c2  cream   — primary text (warm cream)
      #c1912f  gold    — accent: actions, links, highlights
    Status colors stay semantic (green = good, amber = pending,
@@ -30,11 +31,11 @@
   }
 
   html {
-    background-color: #220c12;
+    background-color: #000000;
   }
 
   body {
-    @apply bg-night text-cream antialiased;
+    @apply bg-ink text-cream antialiased;
     text-rendering: optimizeLegibility;
   }
 
@@ -88,12 +89,14 @@
     @apply bg-ink text-cream;
   }
 
-  /* ---------- Surfaces ---------- */
+  /* ---------- Surfaces ----------
+     Cards sit on the pure-black page as subtle plum elevations
+     (#220c12); "wells" inside cards are black insets. */
   .card {
-    @apply rounded-2xl border border-cream/10 bg-blood shadow-lg shadow-black/30;
+    @apply rounded-2xl border border-cream/10 bg-night shadow-lg shadow-black/50;
   }
   .card-well {
-    @apply rounded-xl border border-black/50 bg-ink/60;
+    @apply rounded-xl border border-cream/10 bg-ink;
   }
 
   /* Small pill chip (selected filters, meta labels) */

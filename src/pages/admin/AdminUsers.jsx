@@ -66,7 +66,7 @@ export default function AdminUsers() {
                 <tr key={u.id} className="hover:bg-cream/5">
                   <td className="px-4 py-3">
                     <span className="flex items-center gap-2.5">
-                      <Avatar name={u.profile.full_name} size="sm" />
+                      <Avatar name={u.profile.full_name} src={u.profile.avatar_url} size="sm" />
                       <span className="font-medium text-cream">{u.profile.full_name}</span>
                     </span>
                   </td>
