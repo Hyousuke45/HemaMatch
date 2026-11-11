@@ -3,8 +3,9 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Alert, Avatar, StatusBadge } from '../components/ui';
 import dataService from '../lib/dataService';
+import useAsync from '../hooks/useAsync';
 import { isCloudinaryConfigured, uploadAvatar, validateImageFile } from '../lib/cloudinary';
-import { BLOOD_TYPES, REGIONS } from '../lib/constants';
+import { BLOOD_TYPES, REGIONS, ACCOUNT_TYPES, DOCTOR_APP_STATUS } from '../lib/constants';
 import { formatDate } from '../lib/utils';
 
 // Donor profile page. Users may edit ONLY their own profile — the backend
@@ -20,7 +21,7 @@ import { formatDate } from '../lib/utils';
 //   (profiles.avatar_url) — swappable for Supabase Storage later
 //   without touching any other component.
 export default function Profile() {
-  const { user, refreshUser, logout } = useAuth();
+  const { user, refreshUser, logout, isDoctor, isBusiness } = useAuth();
   const navigate = useNavigate();
   const p = user.profile;
 
@@ -31,6 +32,12 @@ export default function Profile() {
     city: p.city || '',
     is_available: Boolean(p.is_available)
   });
+  const [doctorForm, setDoctorForm] = useState({
+    license_id: p.doctor_license_id || '',
+    specialization: p.specialization || '',
+    contact_number: p.contact_number || '',
+    is_doctor: Boolean(p.is_doctor)
+  });
   const [avatarUrl, setAvatarUrl] = useState(p.avatar_url || '');
   const [photoError, setPhotoError] = useState(null);
   const [uploading, setUploading] = useState(false);
@@ -38,7 +45,15 @@ export default function Profile() {
   const [feedback, setFeedback] = useState(null); // { tone, message }
   const [busy, setBusy] = useState(false);
 
+  // v4: the doctor's hospital applications (status list)
+  const { data: myApplications } = useAsync(
+    async () => (isDoctor ? dataService.listMyDoctorApplications() : null),
+    [isDoctor]
+  );
+
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
+  const setDoc = (k) => (e) =>
+    setDoctorForm((d) => ({ ...d, [k]: e.target.type === 'checkbox' ? e.target.checked : e.target.value }));
 
   // ---- Photo handling ----
   const handleFileChosen = async (e) => {
@@ -78,14 +93,24 @@ export default function Profile() {
     setFeedback(null);
     setBusy(true);
     try {
-      await dataService.updateMyProfile({
+      const patch = {
         full_name: form.full_name,
         blood_type: form.blood_type || null,
         region: form.region || null,
         city: form.city,
         is_available: form.is_available,
         avatar_url: avatarUrl || null
-      });
+      };
+      // v4: doctor credentials travel with the same save
+      if (p.role === 'doctor' || p.role === 'business') {
+        patch.doctor_license_id = doctorForm.license_id;
+        patch.specialization = doctorForm.specialization;
+        patch.contact_number = doctorForm.contact_number;
+      }
+      if (p.role === 'business') {
+        patch.is_doctor = doctorForm.is_doctor;
+      }
+      await dataService.updateMyProfile(patch);
       await refreshUser();
       setFeedback({ tone: 'success', message: 'Profile saved.' });
     } catch (err) {
@@ -110,11 +135,131 @@ export default function Profile() {
             <input className="input bg-ink" value={user.email} disabled readOnly />
           </div>
           <div className="flex items-end gap-2 pb-1">
-            <label className="label">Account role</label>
-            {p.role === 'admin' ? <StatusBadge status="verified" label="Administrator" /> : <StatusBadge status="routine" label="User" />}
+            <label className="label">Account type</label>
+            {p.role === 'admin' ? (
+              <StatusBadge status="verified" label="Administrator" />
+            ) : (
+              <StatusBadge
+                status="routine"
+                label={ACCOUNT_TYPES[p.role] || p.role}
+              />
+            )}
             <span className="text-xs text-cream/45">since {formatDate(p.created_at)}</span>
           </div>
         </div>
+
+        {/* v4 — doctor credentials */}
+        {(p.role === 'doctor' || p.role === 'business') && (
+          <div className="space-y-4 border-b border-cream/10 pb-5">
+            <div>
+              <p className="label !mb-1 font-semibold text-cream">Doctor details</p>
+              <p className="text-xs leading-relaxed text-cream/55">
+                {p.role === 'doctor'
+                  ? 'Your license ID and contact number are shown on your hospital\u2019s doctor directory entry and sent with every hospital application.'
+                  : 'As a business (hospital) admin you inherit the Doctor abilities only if you are also a licensed doctor — enable it below to witness transactions at your hospital.'}
+              </p>
+            </div>
+
+            {p.role === 'business' && (
+              <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-cream/15 p-4 hover:bg-cream/5">
+                <input
+                  type="checkbox"
+                  className="mt-0.5 h-4 w-4 accent-gold"
+                  checked={doctorForm.is_doctor}
+                  onChange={(e) =>
+                    setDoctorForm((d) => ({ ...d, is_doctor: e.target.checked }))
+                  }
+                />
+                <span>
+                  <span className="block text-sm font-semibold text-cream">
+                    I am also a licensed doctor
+                  </span>
+                  <span className="mt-0.5 block text-xs text-cream/65">
+                    Business accounts inherit the Doctor abilities (witnessing transactions, being
+                    assignable at your hospital) only when this is enabled and a license ID is set.
+                  </span>
+                </span>
+              </label>
+            )}
+
+            {(p.role === 'doctor' || doctorForm.is_doctor) && (
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="label" htmlFor="doctor_license">
+                    Doctor license / PRC ID{' '}
+                    {p.role === 'doctor' && <span className="text-gold">*</span>}
+                  </label>
+                  <input
+                    id="doctor_license"
+                    className="input"
+                    value={doctorForm.license_id}
+                    onChange={setDoc('license_id')}
+                    placeholder="PRC-0123456"
+                    maxLength={40}
+                  />
+                </div>
+                <div>
+                  <label className="label" htmlFor="doctor_specialization">
+                    Specialization
+                  </label>
+                  <input
+                    id="doctor_specialization"
+                    className="input"
+                    value={doctorForm.specialization}
+                    onChange={setDoc('specialization')}
+                    placeholder="e.g. Internal Medicine"
+                    maxLength={80}
+                  />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="label" htmlFor="doctor_contact">
+                    Contact number{' '}
+                    {p.role === 'doctor' && <span className="text-gold">*</span>}
+                  </label>
+                  <input
+                    id="doctor_contact"
+                    className="input"
+                    value={doctorForm.contact_number}
+                    onChange={setDoc('contact_number')}
+                    placeholder="0917-123-4567"
+                    maxLength={40}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* v4 — doctor: my hospital applications */}
+        {isDoctor && myApplications && myApplications.length > 0 && (
+          <div className="border-b border-cream/10 pb-5">
+            <p className="label !mb-2 font-semibold text-cream">My hospital applications</p>
+            <div className="space-y-2">
+              {myApplications.map((app) => (
+                <div key={app.id} className="flex flex-wrap items-center gap-2 rounded-xl border border-cream/10 bg-ink p-3 text-sm">
+                  <Link to={`/hospitals/${app.hospital_id}`} className="font-medium text-cream hover:text-gold hover:underline">
+                    {app.hospital_name}
+                  </Link>
+                  <StatusBadge
+                    status={app.status === 'accepted' ? 'verified' : app.status}
+                    label={DOCTOR_APP_STATUS[app.status] || app.status}
+                  />
+                  {app.status === 'pending' && (
+                    <span className="text-xs text-cream/55">awaiting the hospital admin&apos;s review</span>
+                  )}
+                  {app.status === 'accepted' && (
+                    <span className="text-xs text-cream/55">
+                      you are on the roster{app.reviewed_by_name ? ` · verified by ${app.reviewed_by_name}` : ''}
+                    </span>
+                  )}
+                  {app.status === 'rejected' && (
+                    <span className="text-xs text-cream/55">you can re-apply from the hospital page</span>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* ---- v3: Profile photo ---- */}
         <div className="border-b border-cream/10 pb-5">

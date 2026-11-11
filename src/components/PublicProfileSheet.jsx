@@ -74,6 +74,14 @@ export default function PublicProfileSheet({ userId, onClose, onMessage, message
                     <StatusBadge status="cancelled" label="Currently unavailable" />
                   )}
                 </div>
+                {/* v4: doctor context — a doctor's hospital affiliation is
+                    public directory information */}
+                {profile.is_doctor && (
+                  <p className="mt-2 text-sm font-medium text-sky-300">
+                    Doctor{profile.specialization ? ` · ${profile.specialization}` : ''}
+                    {profile.doctor_hospital_name ? ` · ${profile.doctor_hospital_name}` : ''}
+                  </p>
+                )}
               </div>
             </div>
 

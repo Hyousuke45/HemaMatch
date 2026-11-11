@@ -75,3 +75,22 @@ Stage Summary:
 - v3.1 complete: Donate tab in mobile bottom nav (both user and admin variants) + replaceable 192/512 PNG app icons with manifest wiring.
 - Deliverables: refreshed download/hemamatch-source.zip, download/HemaMatch-README.md, download/supabase-schema.sql, download/hemamatch-v3-mobile-donate-tab.png, CHANGELOG.md v3.1.
 - Next (Phase 3): user runs schema.sql + seed.sql + .env; cross-role cloud testing; Vercel deploy; defense prep. Open item: "Extras" scope still unconfirmed.
+
+---
+Task ID: 6
+Agent: main (Z.ai)
+Task: HemaMatch v4.1 — two client asks: (1) compatible blood donors must display as individual checkboxes that vary with the receiver's blood type (one option, three options, etc. — not a single dropdown), (2) the hospital is NOT optional ("where would they do the process then").
+
+Work Log:
+- RequestForm.jsx: replaced the single-select "Preferred donor blood type" dropdown with a "Preferred donor blood types" checkbox group — one pill-style checkbox per type that can donate to the chosen patient type (O- patient -> 1 checkbox; O+/A-/B- -> 2; A+/B+ -> 4; AB- -> 4; AB+ -> 8; all labelled with count). Multiple types can be checked; changing the patient type prunes no-longer-compatible checks so an incompatible pair can't be submitted. Form layout re-flowed (blood type + units, checkboxes full-width, region + urgency, hospital, needed_by).
+- Hospital required: label "Hospital *", "Not specified" option removed, browser required + JS guard ("Please choose the hospital where the donation process will take place."), helper text updated ("Required — the donation process happens at the hospital…").
+- Data model rename everywhere: preferred_donor_type (text) -> preferred_donor_types (array) in mockBackend (validateRequestData: array-ify, dedupe, each entry checked against donorTypesFor; store key -> hemamatch_mock_db_v5), supabaseBackend (same validation), RequestForm, RequestDetail ("Prefers O-, A- donors" badge + matching header "prefers … donors (shown first)"), mockData (r-001 ['O-'], r-006 ['O-','A-'] as the multi-select demo, rest []), seed.sql ('{O-}'/'{}' array literals). Both backends reject a missing hospital.
+- DonorCard: the matching-only preferred_type flag is now rendered as a gold "Preferred type" badge (was sorted on but never shown); footer wraps so both badges fit on mobile.
+- schema.sql: donation_requests.preferred_donor_types text[] not null default '{}' with <@ array CHECK; hospital_id uuid not null; idempotent v4->v4.1 DO-block migration (old single choice carried over as one-element array, old column dropped, constraint added if missing); hospital backfill to St. Mary before NOT NULL. get_matching_donors RPC returns preferred_type (p.blood_type = any(preferred_donor_types)) and orders by it first.
+- Demo data: fourth verified hospital "Western Visayas Medical Center" (Iloilo City, Region VI, h-004) + business admin u-018 Teresita Uy biz.western@demo.com/biz12345 in mockData and seed.sql (auth.users + profile + hospital rows); Cristina's r-002 and Paolo's r-006 now point at it so no seeded request lacks a hospital.
+- Verification: pglast/libpg_query parses schema.sql (185 stmts) + seed.sql (30 stmts) clean. Browser (agent-browser, 390x844, zero page/console errors): login as Grace -> new request: checkbox counts per patient type verified (O-:1, O+/A-:2, A+/B+:4, AB+:8), check O-+A- on A+ patient -> switch to B+ keeps only O-, back to A+ restores O- only; submit without hospital blocked (browser validation on Hospital *); create with St. Mary succeeds -> detail shows "Prefers O-, A- donors"; matching lists Maria(O-, preferred+same-region), Rafael(A-, preferred), Paolo(O-, preferred) first, then Juan(A+), Cristina(O+) with no badge; r-001 edit form pre-fills O- checked; hospital directory shows Western Visayas Medical Center; requests list shows Iloilo requests at WVMC. Production build passes (~198 KB gzip, standard chunk-size advisory only).
+
+Stage Summary:
+- v4.1 complete: per-type compatible-donor checkboxes (multi-select, varies by receiver type, enforced client+server) and required hospital across mock + Supabase modes, with a v4 database upgrade path and refreshed demo data.
+- Deliverables: refreshed download/hemamatch-source.zip (project source), download/supabase-schema.sql, download/supabase-seed.sql, CHANGELOG.md v4.1 section, this worklog entry.
+- Note for Phase 3: existing v4 Supabase databases must re-run schema.sql (section 3 now includes the v4.1 upgrade path); mock mode re-seeds automatically via the v5 store key.

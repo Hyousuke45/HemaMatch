@@ -9,123 +9,104 @@ Academic MVP connecting people who need blood with volunteer donors — and lett
 
 ---
 
-## Where the project stands (v3)
+## Where the project stands (v4.1)
 
 | Layer | Status |
 |---|---|
-| Theme | Dark **"blood thirst"** theme, **all-black background everywhere** (`#000000` page, `#220c12` card surfaces, `#430102` blood-red accents, `#c1912f` gold actions, `#ebe0c2` cream text) — consistent on every page |
-| UX | **Mobile-first** (bottom tab bar — Home · Requests · **Donate** · Messages · Hospitals/Admin · Profile, 44px touch targets, 16px inputs, safe areas, bottom-sheet dialogs) |
-| Data | Two interchangeable backends behind one contract: **mock** (localStorage) and **Supabase** (PostgreSQL + RLS). Chosen automatically by `.env` — see Step 3 |
-| Auth | Mock mode simulates the email link; **Supabase mode uses real Supabase Auth** — real confirmation & reset emails, session listener, `/reset-password` page |
-| Requests | Create/browse/edit requests, status lifecycle (Pending → Accepted → Completed/Cancelled) with guarded transitions and server-logged reasons |
-| **Donation offers (v3)** | The **Donate** side: any user can list themselves as a volunteer donor (Open/Paused, with a note). Open listings appear in the **Available donors** directory AND in request matching. Availability and listing status **always stay in sync** (backend-enforced both ways) |
-| **Profile views (v3)** | On a **blood-donation-request detail page only**: "View profile" on the requester and on each matched donor opens a directory-safe profile sheet (photo, blood type, location, availability, member since, recorded successful donations, listing note). No standalone public profiles — privacy by design |
-| **Profile photos (v3)** | Cloudinary **unsigned** uploads (no secret in the browser) with a paste-an-image-URL fallback, initials fallback if a photo fails to load. Photos appear in the header, chat, requests, donor cards and profile sheet |
-| Matching | Full ABO/Rh matrix + region + availability, same-region ranked first — runs **server-side** (`get_matching_donors`) in Supabase mode |
-| Messaging | 1:1 conversations, participant-checked, **Supabase Realtime** streaming in Supabase mode (mock mode: instant same-tab delivery + light poll) |
-| Admin | Live statistics (SQL counts via `admin_get_stats`, incl. open donor listings), request corrections **with server-logged reasons** (`set_request_status`), outcome records, user roles (`admin_set_role`), hospital verification, activity log |
-| App icon | `public/icon-192.png` + `public/icon-512.png` (gold droplet on black) wired as favicon, apple-touch-icon and PWA manifest — **replace the two files to rebrand, no code changes** |
+| Account types (v4) | Registration picks your type: **Donor/Recipient** (base — donate + request blood), **Doctor** (inherits the base, plus hospital affiliation after the hospital admin verifies their application), **Business (hospital)** (inherits the base; the hospital admin — it additionally inherits the Doctor abilities **only if the admin is also a licensed doctor**, via the "I am also a licensed doctor" profile toggle) |
+| Requests (v4.1) | "Preferred donor blood types" — **one checkbox per blood type compatible with the patient's type** (O- patient → 1 checkbox, A+ → 4, AB+ → all 8; several can be checked); the **hospital is required** (the donation process happens there) and attaching it **notifies the hospital** (business admin's inbox) |
+| Donor accept (v4) | Any donor can accept a request → a doctor from the request's hospital is **auto-assigned** as the witness, or the donor **chooses the doctor** — restricted to that hospital's roster; the doctor can be changed while the acceptance is active; the hospital is notified |
+| Doctor applications (v4) | Doctors apply to a hospital with their license ID / specialization / contact number + a note; the **hospital admin verifies and accepts/rejects**; accepted doctors join the roster (one hospital per doctor); rejected doctors may re-apply |
+| Hospital directory (v4) | Every user can search hospitals by name/city/region/description; the hospital page shows the **photo background with a gradient fade into the description**, location, the business admin, and the doctor roster with **license IDs and contact numbers**; "Message hospital" opens a chat that goes to the admin |
+| Business panel (v4) | `My hospital`: live stats, **notifications inbox** (new requests / donor acceptances / doctor applications), doctor application review, hospital profile editing (photo, description, location, contact) and **outcome records with the witnessing doctor** |
+| Doctor panel (v4) | `My assignments`: every transaction the doctor is assigned to as the witness/middleman — the request, donor, hospital and recorded outcome |
+| Messaging (v4) | Hospital threads show the **hospital name in the header** ("messages go to the administrator"); doctor chats show the **doctor's hospital beside their name** |
+| Theme | Dark **"blood thirst"** theme, all-black background everywhere |
+| UX | **Mobile-first** (bottom tab bar, 44px touch targets, safe areas, bottom-sheet dialogs); the tab bar adapts to the account type (Admin / Hospital / Witness) |
+| Data | Two interchangeable backends behind one contract: **mock** (localStorage) and **Supabase** (PostgreSQL + RLS). Chosen automatically by `.env` |
+| Auth | Mock mode simulates the email link; **Supabase mode uses real Supabase Auth** |
+| Requests | Create/browse/edit requests, status lifecycle with guarded transitions and server-logged reasons |
+| Donation offers | Any user can list themselves as a volunteer donor (Open/Paused) |
+| Profile views | Directory-safe profile sheets on request pages; doctor affiliation shown for doctors |
+| Profile photos | Cloudinary unsigned uploads with URL fallback |
+| Matching | Full ABO/Rh matrix + region + availability + preferred-type ranking (checked types first, badged "Preferred type"), server-side in Supabase mode |
+| Admin | Live statistics, request corrections with reasons, outcome records, user roles, hospital verification, activity log |
 
-See **CHANGELOG.md** for the full change history (v2: rebrand/theme/mobile/Phase 2 · v3: black theme, profile views, donation offers, photos).
+See **CHANGELOG.md** for the full change history.
 
 ---
 
-## Step 1 — Run the app (mock mode, zero setup)
-
-```bash
-npm install        # or: bun install
-npm run dev        # or: bun run dev
-```
-
-Open **http://localhost:3000** (the preview panel also shows it — click "Open in New Tab").
-
-### Demo accounts (seeded)
+## Demo accounts (v4.1)
 
 | Account | Email | Password | Role / notes |
 |---|---|---|---|
 | Ana Villanueva | `admin@demo.com` | `admin123` | Administrator |
-| Maria Santos | `maria@demo.com` | `maria123` | Donor, O-, NCR, **open donor listing**, has a photo |
-| Grace Lim | `grace@demo.com` | `grace123` | Requester of an **O+ critical request** (great for matching demo) |
-| Angela Reyes | `angela@demo.com` | `angela123` | Has a B- accepted request with a **failed outcome record**; **open donor listing** |
-| Paolo Villanueva | `paolo@demo.com` | `paolo123` | O- donor, CALABARZON, **1 recorded successful donation**, open listing |
-| Miguel Lopez | `miguel@demo.com` | `miguel123` | **Paused donor listing** — demonstrates the paused state |
+| Maria Santos | `maria@demo.com` | `maria123` | Donor, O-, NCR, **open donor listing** |
+| Grace Lim | `grace@demo.com` | `grace123` | Requester of an **O+ critical request** (preferred donor types **O-**) |
+| Teresita Uy | `biz.western@demo.com` | `biz12345` | **Business** — admin of Western Visayas Medical Center (Iloilo) |
+| Corazon Santiago | `biz.stmary@demo.com` | `biz12345` | **Business** — admin of St. Mary General Hospital (has a pending doctor application + notifications to review) |
+| Melinda Torres | `biz.central@demo.com` | `biz12345` | **Business** — admin of Central Luzon Medical Center |
+| Rodrigo Bautista | `biz.davao@demo.com` | `biz12345` | **Business + Doctor** — admin of Davao Regional Hospital who is also a licensed surgeon (inherits the Doctor abilities) |
+| Dr. Elena Ramos | `dr.ramos@demo.com` | `doctor123` | **Doctor** — St. Mary roster, witness on an active transaction |
+| Dr. Marco Aquino | `dr.aquino@demo.com` | `doctor123` | **Doctor** — St. Mary roster |
+| Dr. Liza Domingo | `dr.domingo@demo.com` | `doctor123` | **Doctor** — Central Luzon roster, **pending application** to St. Mary |
 
-The same accounts exist in **Supabase mode** — `supabase/seed.sql` creates them with real bcrypt-hashed passwords, pre-confirmed emails, profile photos and donor listings (see Step 3), so the login quick-fill chips work in the live demo.
+The same accounts exist in **Supabase mode** — `supabase/seed.sql` creates them with real bcrypt-hashed passwords, pre-confirmed emails, profile photos, hospital rosters, donor acceptances and notifications.
 
 **Reset demo data anytime:** open the browser DevTools console and run
-`localStorage.removeItem('hemamatch_mock_db_v3')` (data re-seeds on next load).
+`localStorage.removeItem('hemamatch_mock_db_v5')` (data re-seeds on next load).
 
-### 12-minute defense demo script
+### v4.1 demo script (10 minutes)
 
-1. **Landing page** — all-black dark theme, live stats, the 3-step flow, and the medical + RA 7719 disclaimers.
-2. **Register** a new account → the email-verification screen appears:
-   - mock mode → click **"Simulate clicking the verification link"**;
-   - Supabase mode → the **real confirmation email** arrives (or use a pre-verified demo account — Supabase limits emails to ~2–3/hour on the free tier, so don't rely on live sign-ups during the defense).
-3. **Complete your donor profile** (photo, blood type, region, availability) — *Profile* page. Show the photo upload/URL field.
-4. **The donate side (v3):** open **Donate** (Dashboard card or desktop nav) → show the RA 7719 "voluntary, never for sale" note → the listing editor (note + Open/Paused) → then open **Requests → "Available donors"** tab: directory cards with photos, notes and same-region ranking. Click **Message donor** → chat opens.
-5. **Login as `grace@demo.com`** → open her O+ request → show **Potential donors (preliminary match)**: only O−/O+ available donors appear, same-region (NCR) first, with the disclaimer. Explain: this is filtering, not medical clearance.
-6. **Profile views (v3):** on the same request, click **View profile** under the requester, then on a matched donor card → the profile sheet shows directory-safe info only (never email), the recorded successful-donation count and the donor's listing note. Point out the privacy footer.
-7. **Sync proof (v3):** login as `maria@demo.com` → *Donate* → **Pause listing** → the donor directory no longer shows her AND her profile availability flipped to "Not available" automatically. Reopen it to restore. (Both directions are enforced by the backend: `upsert_my_offer` RPC + `sync_offer_with_availability` trigger in Supabase mode.)
-8. **Matching → chat:** back as Grace, click **Message donor** → send a message. On a second device/browser, login as `maria@demo.com` → the message is already there (**Realtime** in Supabase mode) — with her photo in the conversation list.
-9. **Login as `admin@demo.com`** → *Admin*:
-   - **Overview**: every statistic is computed live, including **Open donor listings**.
-   - **Requests**: change a pending request to Accepted — a confirmation dialog asks for a reason; in Supabase mode the reason is written to the activity log **by the database** (`set_request_status` RPC).
-   - **Outcome records**: record a **Successful** outcome for an accepted request → the request automatically becomes **Completed** → check the **Activity log**: both events are recorded (plus any listing changes from step 7).
-   - **Hospitals**: verify the pending *Davao Regional Hospital*.
-   - **Users**: role toggling is guarded (you can never change your own role) and logged; photos shown in the directory.
-10. **Security talking points:** users never see each other's emails; profile sheets are directory-safe by the server (`get_public_profile` RPC); only admins complete requests; only participants read a conversation; every important change — including listing changes — is audit-logged; nobody can grant themselves admin; donation is voluntary-only per RA 7719.
+1. **Register** → pick each account type to see the role-specific fields (doctor: license/specialization/contact; business: hospital record) → verify email (simulated in mock mode).
+2. **Create a request** as Grace: choose blood type **O+** → the *Preferred donor blood types* checkboxes show **O- and O+** only (switch to **AB+** and all 8 appear; **O-** shows a single checkbox) → check **O-** → pick the **hospital** (required — "Not specified" no longer exists) → **St. Mary General Hospital**.
+3. Login as `biz.stmary@demo.com` → **My hospital** → the **notification inbox** shows the new request; **review the pending doctor application** (Dr. Liza Domingo — verify her license ID and contact number) → accept or reject it.
+4. Login as `maria@demo.com` → open Grace's request → **Accept as donor** → choose **Dr. Elena Ramos** (only St. Mary doctors are selectable — try picking a Davao doctor and it is refused) → the request flips to **Accepted** and the hospital is notified.
+5. Login as `dr.ramos@demo.com` → **My assignments** → the transaction appears with Maria as the donor. Open it, message the donor, then **Set Completed** (or record an outcome) — the doctor is the witness/source of truth.
+6. Login as `biz.stmary@demo.com` → **My hospital** → the acceptance notification is there; **outcome records** list the transaction with the witnessing doctor; edit the hospital **photo + description** and check the public page's gradient fade.
+7. **Hospitals** (any account): search "Davao", open a hospital — photo background, gradient fade, description under it, admin, doctors with license IDs + contact numbers → **Message hospital** → the thread header shows the hospital name; on the business admin's side the reply arrives in the same thread.
+8. Login as `biz.davao@demo.com` (business + doctor) → the profile shows the **"I am also a licensed doctor"** toggle enabled → **My assignments** works for this account too (inherited Doctor abilities).
 
 ---
 
-## Step 2 — Project structure
+## Project structure (v4 additions marked)
 
 ```
 src/
   lib/
-    constants.js        # blood types, ABO matrix, regions, statuses, offers,
-                        # RA 7719 note, disclaimers
-    utils.js             # formatting + validation helpers
-    cloudinary.js        # v3: UNSIGNED profile-photo uploads + validation
-    mockData.js          # seeded demo data (mirrors schema.sql 1:1, incl.
-                        # donation_offers + avatar URLs)
-    mockBackend.js       # backend A: localStorage simulation + [RLS mirror]
-                         # checks, incl. offers + public profile + avatar
-    supabaseBackend.js   # backend B: Supabase Auth + Postgres queries + RPCs
-                         # + Realtime, incl. offers + public profile + avatar
-    dataService.js       # THE SWITCH: picks mock vs supabase from .env
-    supabaseClient.js    # Supabase client (anon key only, inert until .env)
-  context/AuthContext.jsx    # global auth state + Supabase onAuthStateChange
-  hooks/useAsync.js
+    constants.js        # blood types, ABO matrix (BOTH directions), regions,
+                        # account types, doctor-application + acceptance
+                        # statuses, RA 7719 note, disclaimers
+    utils.js            # formatting + validation helpers
+    cloudinary.js       # UNSIGNED photo uploads (avatars + hospital photos)
+    mockData.js         # seeded demo data incl. doctors, businesses,
+                        # rosters, acceptances, notifications
+    mockBackend.js      # backend A: localStorage + [RLS mirror] checks,
+                        # incl. acceptances, doctor applications, hospital
+                        # chat, notifications, business panels
+    supabaseBackend.js  # backend B: same contract on Supabase (RPCs)
+    dataService.js      # THE SWITCH: picks mock vs supabase from .env
+  context/AuthContext.jsx    # auth state + isAdmin/isDoctor/isBusiness
   components/
-    Layout.jsx          # mobile bottom tab bar + desktop nav (Donate link)
-    PublicProfileSheet.jsx   # v3: directory-safe profile sheet (request
-                             # detail only — bottom sheet on phones)
-    BrowseTabs.jsx      # v3: Requests <-> Available donors segmented control
-    DonorCard.jsx       # donor card (matching + directory), photo, note
-    ui.jsx              # badges, alerts, avatar (photo + initials fallback),
-                        # confirm dialog, empty/error states
-  pages/                # Landing, auth (+ ResetPassword), Dashboard, Profile
-                        # (photo section), Requests, RequestForm, RequestDetail
-                        # (profile sheet + admin controls), Messages, Hospitals
-  pages/Donate.jsx      # v3: my voluntary donor listing (Open/Paused)
-  pages/Donors.jsx     # v3: available-donors directory (filters + message)
-  pages/admin/          # Overview, Requests, Records, Users, Hospitals, Logs
-public/
-  icon-192.png          # app icon (gold droplet on black) — favicon,
-  icon-512.png          #   apple-touch-icon, PWA manifest. REPLACE THESE TWO
-                        #   FILES to change the app icon; no code changes
-  manifest.webmanifest  # PWA manifest (name, colors, both icons)
+    Layout.jsx          # role-aware bottom tab bar + desktop nav
+    PublicProfileSheet.jsx   # directory-safe profile sheet (+ doctor info)
+    DonorCard.jsx / RequestCard.jsx / ui.jsx / BrowseTabs.jsx
+  pages/
+    Landing, Login, Register (account-type picker), Dashboard (role cards),
+    Profile (doctor credentials + application list), Requests, RequestForm
+    (compatible-donor dropdown), RequestDetail (donor-accept flow +
+    assigned doctor), Donate, Donors, Messages (hospital threads),
+    Hospitals (search), HospitalDetail (photo + gradient fade + roster),
+    MyHospital (business panel), MyAssignments (doctor witness view)
+  pages/admin/          # Overview, Requests, Records (witness column),
+                        # Users (account types), Hospitals, Logs
 supabase/
-  schema.sql            # FULL PostgreSQL schema: tables, constraints, triggers,
-                        # RLS policies, security-definer RPCs, realtime, indexes
-                        # + Phase 2 additions + v3 section 10: donation_offers,
-                        # upsert_my_offer, get_public_profile, availability sync
-  seed.sql              # demo accounts (bcrypt + pre-confirmed + photos),
-                        # hospitals, requests, donor listings
-.env.example            # public vars only: Supabase URL/anon + Cloudinary
+  schema.sql            # v4 section 11: hospital_doctors, donor_acceptances,
+                        # hospital_notifications, business/doctor RPCs
+  seed.sql              # demo accounts incl. doctors + businesses
 ```
 
-Both backends export the **same function names** (`dataService.js` documents the contract), so pages never change when the backend switches. Search `// [RLS mirror]` in `mockBackend.js` to see where every JS check lives in PostgreSQL.
+Both backends export the **same function names** (`dataService.js` documents the contract), so pages never change when the backend switches.
 
 ### Changing the app icon (no code required)
 

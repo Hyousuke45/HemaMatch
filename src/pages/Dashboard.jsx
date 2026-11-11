@@ -7,9 +7,13 @@ import RequestCard from '../components/RequestCard';
 import { formatDate } from '../lib/utils';
 
 export default function Dashboard() {
-  const { user } = useAuth();
+  const { user, isDoctor, isBusiness } = useAuth();
   const { data: myRequests, loading, error } = useAsync(() => dataService.getMyRequests());
   const { data: myOffer, loading: offerLoading } = useAsync(() => dataService.getMyOffer(), []);
+  const { data: myAssignments } = useAsync(
+    async () => (isDoctor ? dataService.getMyDoctorAssignments() : null),
+    [isDoctor]
+  );
 
   const p = user.profile;
 
@@ -20,9 +24,46 @@ export default function Dashboard() {
         <Avatar name={p.full_name} src={p.avatar_url} size="lg" />
         <div>
           <h1 className="text-2xl font-bold text-cream">Welcome, {p.full_name.split(' ')[0]}!</h1>
-          <p className="text-sm text-cream/65">Member since {formatDate(p.created_at)}</p>
+          <p className="text-sm text-cream/65">
+            Member since {formatDate(p.created_at)}
+            {isBusiness ? ' · Business (hospital admin) account' : isDoctor ? ' · Doctor account' : ''}
+          </p>
         </div>
       </div>
+
+      {/* v4: doctor / business context cards */}
+      {isDoctor && (
+        <section className="card p-5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="font-semibold text-cream">Witnessed transactions</p>
+              <p className="mt-0.5 text-sm text-cream/65">
+                {myAssignments
+                  ? `You are the assigned doctor (witness) on ${myAssignments.length} transaction${myAssignments.length === 1 ? '' : 's'}.`
+                  : 'Loading your assignments…'}
+              </p>
+            </div>
+            <Link to="/my-assignments" className="btn-secondary">
+              My assignments
+            </Link>
+          </div>
+        </section>
+      )}
+      {isBusiness && (
+        <section className="card p-5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="font-semibold text-cream">Your hospital</p>
+              <p className="mt-0.5 text-sm text-cream/65">
+                Track records, review doctor applications and manage your hospital&apos;s public profile.
+              </p>
+            </div>
+            <Link to="/my-hospital" className="btn-primary">
+              Open hospital panel
+            </Link>
+          </div>
+        </section>
+      )}
 
       {/* Donor profile card */}
       <section className="card p-6">
@@ -77,7 +118,7 @@ export default function Dashboard() {
       </section>
 
       {/* Quick actions — big tappable cards, icon + one-line purpose */}
-      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <Link to="/requests/new" className="card p-5 transition-colors hover:border-gold/40">
           <span className="flex items-center gap-2 font-semibold text-cream">
             <svg className="h-5 w-5 text-gold" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
@@ -111,6 +152,17 @@ export default function Dashboard() {
             Browse requests
           </span>
           <p className="mt-1 text-sm text-cream/65">See who needs blood near you and offer help.</p>
+        </Link>
+        <Link to="/hospitals" className="card p-5 transition-colors hover:border-gold/40">
+          <span className="flex items-center gap-2 font-semibold text-cream">
+            <svg className="h-5 w-5 text-gold" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 21V6.2A2.2 2.2 0 016.7 4h10.6a2.2 2.2 0 012.2 2.2V21M4.5 21h15M9.4 4V2.6M14.6 4V2.6M12 8.2v6m-3-3h6" />
+            </svg>
+            Find a hospital
+          </span>
+          <p className="mt-1 text-sm text-cream/65">
+            Search hospitals, view doctors and message the hospital directly.
+          </p>
         </Link>
         <Link to="/messages" className="card p-5 transition-colors hover:border-gold/40">
           <span className="flex items-center gap-2 font-semibold text-cream">

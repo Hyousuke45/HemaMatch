@@ -79,12 +79,20 @@ export function AuthProvider({ children }) {
     setUser(session ? session.user : null);
   }, []);
 
+  // v4 account helpers:
+  //   isDoctor   — account type 'doctor', or a business admin who is also
+  //                a licensed doctor (business inherits doctor)
+  //   isBusiness — hospital admin account
   const isAdmin = user?.profile?.role === 'admin';
+  const isBusiness = user?.profile?.role === 'business';
+  const isDoctor = user?.profile?.role === 'doctor' || Boolean(user?.profile?.is_doctor);
 
   const value = {
     user,
     loading,
     isAdmin,
+    isDoctor,
+    isBusiness,
     login,
     register,
     verifyEmail,

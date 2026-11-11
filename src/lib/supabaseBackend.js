@@ -62,6 +62,12 @@ async function myProfileRow() {
   return data;
 }
 
+// v4: a user acts as a doctor when the account type is doctor, OR they are
+// a business (hospital) admin who is also a licensed doctor.
+function actsAsDoctor(profile) {
+  return profile?.role === 'doctor' || Boolean(profile?.is_doctor);
+}
+
 function mapAuthUser(authUser, profile) {
   const p = profile || {
     id: authUser.id,
@@ -126,7 +132,18 @@ function onAuthStateChange(callback) {
   return () => data.subscription.unsubscribe();
 }
 
-async function register({ full_name, email, password }) {
+// v4: registration picks an account type (user / doctor / business).
+// The profile row (with the doctor fields, and the hospital record for
+// businesses) is created by the handle_new_user trigger from the
+// raw_user_meta_data passed here.
+async function register({
+  full_name,
+  email,
+  password,
+  account_type = 'user',
+  doctor = {},
+  hospital = {}
+}) {
   const cleanEmail = String(email || '').trim().toLowerCase();
   const cleanName = String(full_name || '').trim();
   if (!cleanName || cleanName.length < 2) throw new Error('Please enter your full name.');
@@ -134,11 +151,37 @@ async function register({ full_name, email, password }) {
   const pwError = validatePassword(password);
   if (pwError) throw new Error(pwError);
 
+  const type = ['user', 'doctor', 'business'].includes(account_type) ? account_type : 'user';
+  const metaData = { full_name: cleanName, account_type: type };
+
+  if (type === 'doctor') {
+    const license = String(doctor.license_id || '').trim();
+    const contact = String(doctor.contact_number || '').trim();
+    const spec = String(doctor.specialization || '').trim();
+    if (!license) throw new Error('Please enter your doctor license / PRC ID number.');
+    if (!contact) throw new Error('Please enter your contact number.');
+    metaData.doctor_license_id = license;
+    metaData.doctor_contact_number = contact;
+    metaData.specialization = spec;
+  }
+  if (type === 'business') {
+    const hName = String(hospital.name || '').trim();
+    if (hName.length < 3)
+      throw new Error('Please enter your hospital\u2019s name (at least 3 characters).');
+    if (!hospital.region) throw new Error('Please choose the region where your hospital is located.');
+    metaData.hospital_name = hName;
+    metaData.hospital_region = hospital.region;
+    metaData.hospital_city = String(hospital.city || '').trim() || null;
+    metaData.hospital_address = String(hospital.address || '').trim() || null;
+    metaData.hospital_contact_number = String(hospital.contact_number || '').trim() || null;
+    metaData.hospital_description = String(hospital.description || '').trim() || '';
+  }
+
   const { error } = await sb().auth.signUp({
     email: cleanEmail,
     password,
     options: {
-      data: { full_name: cleanName },
+      data: metaData,
       emailRedirectTo: `${window.location.origin}/login`
     }
   });
@@ -245,6 +288,36 @@ async function updateMyProfile(patch) {
     if (url && (!/^https?:\/\//i.test(url) || url.length > 500))
       throw new Error('Photo must be a valid image URL (https://…) of at most 500 characters.');
     clean.avatar_url = url;
+  }
+
+  // v4: doctor credentials. A doctor must always keep a license + contact;
+  // a business admin may toggle "I am also a licensed doctor".
+  if (patch.is_doctor !== undefined) {
+    if (current?.role !== 'business')
+      throw new Error('Only business (hospital) accounts can toggle the doctor ability.');
+    const next = Boolean(patch.is_doctor);
+    if (next && !String(patch.doctor_license_id ?? current?.doctor_license_id ?? '').trim())
+      throw new Error('Enter your doctor license / PRC ID to enable doctor abilities.');
+    clean.is_doctor = next;
+  }
+  if (patch.doctor_license_id !== undefined) {
+    const license = String(patch.doctor_license_id || '').trim();
+    if (license.length > 40) throw new Error('License ID is too long (max 40 characters).');
+    if (current?.role === 'doctor' && !license)
+      throw new Error('A doctor account must always have a license ID.');
+    clean.doctor_license_id = license || null;
+  }
+  if (patch.specialization !== undefined) {
+    const spec = String(patch.specialization || '').trim();
+    if (spec.length > 80) throw new Error('Specialization is too long (max 80 characters).');
+    clean.specialization = spec || null;
+  }
+  if (patch.contact_number !== undefined) {
+    const contact = String(patch.contact_number || '').trim();
+    if (contact.length > 40) throw new Error('Contact number is too long (max 40 characters).');
+    if (current?.role === 'doctor' && !contact)
+      throw new Error('A doctor account must always have a contact number.');
+    clean.contact_number = contact || null;
   }
   if (patch.is_available !== undefined) {
     clean.is_available = Boolean(patch.is_available);
@@ -388,7 +461,7 @@ async function getMyRequests() {
 }
 
 async function getRequest(id) {
-  await requireUid();
+  const uid = await requireUid();
   const { data, error } = await sb()
     .from('donation_requests')
     .select(REQUEST_SELECT)
@@ -402,19 +475,54 @@ async function getRequest(id) {
   const { data: rec } = await sb()
     .from('donation_records')
     .select(
-      '*, donor:profiles!donation_records_donor_id_fkey(full_name), recorder:profiles!donation_records_recorded_by_fkey(full_name)'
+      '*, donor:profiles!donation_records_donor_id_fkey(full_name), doctor:profiles!donation_records_doctor_id_fkey(full_name), recorder:profiles!donation_records_recorded_by_fkey(full_name)'
     )
     .eq('request_id', id)
     .order('created_at', { ascending: true })
     .limit(1)
     .maybeSingle();
 
+  // v4: donor acceptances (with donor + assigned doctor names) and the
+  // hospital's assignable doctor list.
+  const { data: acceptances } = await sb()
+    .from('donor_acceptances')
+    .select(
+      '*, donor:profiles!donor_acceptances_donor_id_fkey(full_name, avatar_url, blood_type), doctor:profiles!donor_acceptances_doctor_id_fkey(full_name, specialization)'
+    )
+    .eq('request_id', id)
+    .neq('status', 'withdrawn')
+    .order('created_at', { ascending: true });
+
+  const mappedAcceptances = (acceptances || []).map((a) => ({
+    ...a,
+    donor_name: a.donor?.full_name ?? 'Unknown',
+    donor_avatar_url: a.donor?.avatar_url ?? null,
+    donor_blood_type: a.donor?.blood_type ?? null,
+    doctor_name: a.doctor?.full_name ?? null,
+    doctor_specialization: a.doctor?.specialization ?? null
+  }));
+
+  // v4: doctors assignable to this request = the hospital's accepted
+  // roster + the hospital admin when they are also a doctor.
+  let hospitalDoctors = [];
+  if (joined.hospital_id) {
+    const { data: roster } = await sb().rpc('get_hospital_doctors', {
+      p_hospital_id: joined.hospital_id
+    });
+    hospitalDoctors = roster || [];
+  }
+
   return {
     ...joined,
+    compatible_types: donorTypesFor(joined.blood_type),
+    hospital_doctors: hospitalDoctors,
+    acceptances: mappedAcceptances,
+    my_acceptance: mappedAcceptances.find((a) => a.donor_id === uid) ?? null,
     record: rec
       ? {
           ...rec,
           donor_name: rec.donor?.full_name ?? null,
+          doctor_name: rec.doctor?.full_name ?? null,
           recorded_by_name: rec.recorder?.full_name ?? 'Administrator'
         }
       : null
@@ -427,15 +535,30 @@ function validateRequestData(data) {
   if (!Number.isInteger(units) || units < 1 || units > 10)
     throw new Error('Units needed must be a whole number between 1 and 10.');
   if (!data.region) throw new Error('Please choose a region.');
+  // v4.1: the hospital is required — the donation process happens there.
+  if (!data.hospital_id) throw new Error('Please choose the hospital for the donation process.');
   if (data.description && String(data.description).length > 600)
     throw new Error('Description is too long (max 600 characters).');
+
+  // v4.1: the preferred donor types (multi-select checkboxes) must ALL
+  // be COMPATIBLE with the requested blood type.
+  const preferred = Array.from(new Set(data.preferred_donor_types || []));
+  for (const t of preferred) {
+    if (!BLOOD_TYPES.includes(t)) throw new Error('Invalid preferred donor blood type.');
+    if (!donorTypesFor(data.blood_type).includes(t))
+      throw new Error(
+        `A donor with type ${t} cannot donate to a patient with type ${data.blood_type}.`
+      );
+  }
+
   return {
     blood_type: data.blood_type,
+    preferred_donor_types: preferred,
     units_needed: units,
     region: data.region,
     urgency: ['routine', 'urgent', 'critical'].includes(data.urgency) ? data.urgency : 'routine',
     needed_by: data.needed_by || null,
-    hospital_id: data.hospital_id || null,
+    hospital_id: data.hospital_id,
     description: String(data.description || '').trim()
   };
 }
@@ -444,10 +567,8 @@ async function createRequest(data) {
   const uid = await requireUid();
   const clean = validateRequestData(data);
 
-  if (clean.hospital_id) {
-    const { data: h } = await sb().from('hospitals').select('status').eq('id', clean.hospital_id).maybeSingle();
-    if (!h || h.status !== 'verified') throw new Error('Only verified hospitals can be selected.');
-  }
+  const { data: h } = await sb().from('hospitals').select('status').eq('id', clean.hospital_id).maybeSingle();
+  if (!h || h.status !== 'verified') throw new Error('Only verified hospitals can be selected.');
 
   const { data: row, error } = await sb()
     .from('donation_requests')
@@ -471,10 +592,8 @@ async function updateRequest(id, data) {
   if (existing.status !== 'pending') throw new Error('Only pending requests can be edited.');
 
   const clean = validateRequestData({ ...existing, ...data });
-  if (clean.hospital_id) {
-    const { data: h } = await sb().from('hospitals').select('status').eq('id', clean.hospital_id).maybeSingle();
-    if (!h || h.status !== 'verified') throw new Error('Only verified hospitals can be selected.');
-  }
+  const { data: h } = await sb().from('hospitals').select('status').eq('id', clean.hospital_id).maybeSingle();
+  if (!h || h.status !== 'verified') throw new Error('Only verified hospitals can be selected.');
 
   const { error } = await sb().from('donation_requests').update(clean).eq('id', id);
   if (error) throw fail(error, 'Could not save the request.');
@@ -521,6 +640,48 @@ async function getMatches(requestId) {
 }
 
 // ============================================================
+// v4: DONOR ACCEPTANCES + DOCTOR ASSIGNMENT
+// All writes run through SECURITY DEFINER RPCs that validate the
+// doctor is in the request's hospital roster and notify the hospital.
+// ============================================================
+
+async function acceptRequestAsDonor(requestId, doctorId = null) {
+  await requireUid();
+  const { data, error } = await sb().rpc('accept_request_as_donor', {
+    p_request_id: requestId,
+    p_doctor_id: doctorId
+  });
+  if (error) throw fail(error, 'Could not accept this request.');
+  return data;
+}
+
+async function setAcceptanceDoctor(acceptanceId, doctorId) {
+  await requireUid();
+  const { data, error } = await sb().rpc('set_acceptance_doctor', {
+    p_acceptance_id: acceptanceId,
+    p_doctor_id: doctorId
+  });
+  if (error) throw fail(error, 'Could not change the assigned doctor.');
+  return data;
+}
+
+async function withdrawAcceptance(acceptanceId) {
+  await requireUid();
+  const { data, error } = await sb().rpc('withdraw_acceptance', {
+    p_acceptance_id: acceptanceId
+  });
+  if (error) throw fail(error, 'Could not withdraw your acceptance.');
+  return data;
+}
+
+async function getMyDoctorAssignments() {
+  const uid = await requireUid();
+  const { data, error } = await sb().rpc('get_my_doctor_assignments');
+  if (error) throw fail(error, 'Could not load your assignments.');
+  return data || [];
+}
+
+// ============================================================
 // MESSAGING (1:1 conversations)
 // RLS: only participants read/write; conversations are created only
 // by the start_conversation RPC. Realtime streams INSERTs on messages.
@@ -530,18 +691,23 @@ async function listConversations() {
   const uid = await requireUid();
   const { data: convs, error } = await sb()
     .from('conversations')
-    .select('id, request_id, created_at, participants:conversation_participants(user_id)')
+    .select(
+      'id, request_id, hospital_id, created_at, participants:conversation_participants(user_id)'
+    )
     .order('created_at', { ascending: false });
   if (error) throw fail(error, 'Could not load conversations.');
   const rows = convs || [];
   if (rows.length === 0) return [];
 
-  // Other participants (names + blood types + photos)
+  // Other participants (names + blood types + photos + role context)
   const otherIds = rows
     .map((c) => c.participants?.find((p) => p.user_id !== uid)?.user_id)
     .filter(Boolean);
   const { data: others } = otherIds.length
-    ? await sb().from('profiles').select('id, full_name, blood_type, avatar_url').in('id', otherIds)
+    ? await sb()
+        .from('profiles')
+        .select('id, full_name, blood_type, avatar_url, role, is_doctor, specialization')
+        .in('id', otherIds)
     : { data: [] };
   const otherMap = new Map((others || []).map((o) => [o.id, o]));
 
@@ -551,6 +717,31 @@ async function listConversations() {
     ? await sb().from('donation_requests').select('id, blood_type, status').in('id', requestIds)
     : { data: [] };
   const reqMap = new Map((reqs || []).map((r) => [r.id, r]));
+
+  // v4: hospital conversations (message-the-hospital) + the hospital a
+  // doctor chat partner works under.
+  const hospitalIds = [...new Set(rows.map((c) => c.hospital_id).filter(Boolean))];
+  const doctorHospitalIds = (others || [])
+    .filter((o) => o.role === 'doctor')
+    .map((o) => o.id);
+  let hospitalMap = new Map();
+  if (doctorHospitalIds.length) {
+    const { data: doctorHospitals } = await sb()
+      .from('hospital_doctors')
+      .select('doctor_id, status, hospital:hospitals!hospital_doctors_hospital_id_fkey(id, name)')
+      .in('doctor_id', doctorHospitalIds)
+      .eq('status', 'accepted');
+    (doctorHospitals || []).forEach((hd) => {
+      if (hd.hospital) hospitalMap.set(`u-${hd.doctor_id}`, hd.hospital);
+    });
+  }
+  if (hospitalIds.length) {
+    const { data: convHospitals } = await sb()
+      .from('hospitals')
+      .select('id, name, photo_url')
+      .in('id', hospitalIds);
+    (convHospitals || []).forEach((h) => hospitalMap.set(h.id, h));
+  }
 
   // Last message per conversation (MVP scale; ordered desc, first wins)
   const convIds = rows.map((c) => c.id);
@@ -570,12 +761,21 @@ async function listConversations() {
     const other = otherId ? otherMap.get(otherId) : null;
     const req = c.request_id ? reqMap.get(c.request_id) : null;
     const last = lastMap.get(c.id);
+    const hospital = c.hospital_id ? hospitalMap.get(c.hospital_id) : null;
+    const otherHospital = otherId ? hospitalMap.get(`u-${otherId}`) : null;
     return {
       id: c.id,
       other_user_id: otherId,
       other_name: other?.full_name ?? 'Unknown',
       other_blood_type: other?.blood_type ?? null,
       other_avatar_url: other?.avatar_url ?? null,
+      other_role: other?.role ?? null,
+      other_is_doctor: other ? actsAsDoctor(other) : false,
+      other_specialization: other?.specialization ?? null,
+      other_hospital_name: otherHospital?.name ?? null,
+      hospital_id: c.hospital_id,
+      hospital_name: hospital?.name ?? null,
+      hospital_photo_url: hospital?.photo_url ?? null,
       request_id: c.request_id,
       request_blood_type: req?.blood_type ?? null,
       request_status: req?.status ?? null,
@@ -597,6 +797,18 @@ async function getOrCreateConversation(otherUserId, requestId = null) {
   });
   if (error) throw fail(error, 'Could not start the conversation.');
   return { id, existing: false }; // the RPC re-uses existing conversations itself
+}
+
+// v4: message a HOSPITAL directly — goes to the hospital's admin, and the
+// chat header displays the hospital name.
+async function getOrCreateHospitalConversation(hospitalId) {
+  const uid = await requireUid();
+  if (!hospitalId) throw new Error('Hospital not found.');
+  const { data: id, error } = await sb().rpc('start_hospital_conversation', {
+    p_hospital_id: hospitalId
+  });
+  if (error) throw fail(error, 'Could not start the conversation with the hospital.');
+  return { id, existing: false };
 }
 
 async function getMessages(conversationId) {
@@ -648,19 +860,207 @@ function subscribeMessages(conversationId, onChange) {
 }
 
 // ============================================================
-// HOSPITALS (Light scope: admin-managed list + verification)
-// RLS: everyone authenticated may read; only admins may write.
+// HOSPITALS — v4: public directory + search + detail + doctor
+// applications + business (admin) management.
+// RLS: authenticated may read (verified ones only for regular users);
+// verification stays platform-admin-only; the hospital's own business
+// admin may edit its public profile fields.
 // ============================================================
 
-async function listHospitals() {
+function mapHospital(h) {
+  if (!h) return null;
+  return {
+    ...h,
+    admin_name: h.admin?.full_name ?? null,
+    admin_avatar_url: h.admin?.avatar_url ?? null,
+    admin_is_doctor: h.admin ? actsAsDoctor(h.admin) : false,
+    doctor_count: h.doctor_count ?? null,
+    pending_applications: h.pending_applications ?? null
+  };
+}
+
+async function listHospitals(filters = {}) {
   const uid = await requireUid();
-  const { data, error } = await sb().from('hospitals').select('*').order('name', { ascending: true });
+  const { data, error } = await sb()
+    .from('hospitals')
+    .select(
+      '*, admin:profiles!hospitals_admin_id_fkey(full_name, avatar_url, role, is_doctor), doctor_count'
+    )
+    .order('name', { ascending: true });
   if (error) throw fail(error, 'Could not load hospitals.');
 
   const { data: me } = await sb().from('profiles').select('role').eq('id', uid).maybeSingle();
   const isAdmin = me?.role === 'admin';
-  // Regular users see verified hospitals only; admins manage the full list.
-  return isAdmin ? data || [] : (data || []).filter((h) => h.status === 'verified');
+  // Regular users see verified hospitals (plus their own while it awaits
+  // verification, so the business admin can still manage it).
+  let rows = isAdmin ? data || [] : (data || []).filter((h) => h.status === 'verified' || h.admin_id === uid);
+  let joined = rows.map(mapHospital);
+
+  if (filters.search) {
+    const q = String(filters.search).toLowerCase();
+    joined = joined.filter(
+      (h) =>
+        h.name.toLowerCase().includes(q) ||
+        (h.city || '').toLowerCase().includes(q) ||
+        h.region.toLowerCase().includes(q) ||
+        (h.description || '').toLowerCase().includes(q)
+    );
+  }
+  if (filters.region) joined = joined.filter((h) => h.region === filters.region);
+  if (filters.status) joined = joined.filter((h) => h.status === filters.status);
+  return joined;
+}
+
+// Full hospital detail — description, location, admin and the doctor
+// roster with license IDs and contact numbers (via RPC, RLS-safe).
+async function getHospital(id) {
+  const uid = await requireUid();
+  const { data, error } = await sb().rpc('get_hospital_detail', { p_hospital_id: id });
+  if (error) throw fail(error, 'Could not load the hospital.');
+  if (!data) throw new Error('Hospital not found.');
+
+  // The viewer's own application to this hospital (doctors).
+  const { data: myApp } = await sb()
+    .from('hospital_doctors')
+    .select('*')
+    .eq('hospital_id', id)
+    .eq('doctor_id', uid)
+    .maybeSingle();
+
+  return {
+    ...data,
+    my_application: myApp ?? null,
+    is_my_hospital: data.admin_id === uid
+  };
+}
+
+// ---------- Business (hospital admin) management ----------
+
+async function businessGetMyHospital() {
+  const uid = await requireUid();
+  const { data, error } = await sb().rpc('business_get_my_hospital');
+  if (error) throw fail(error, 'Could not load your hospital.');
+  if (!data) throw new Error('No hospital is linked to your account. Contact the administrators.');
+  return data;
+}
+
+async function businessUpdateMyHospital(patch) {
+  await requireUid();
+  const clean = {};
+  if (patch.description !== undefined) {
+    const desc = String(patch.description || '').trim();
+    if (desc.length > 1200) throw new Error('Description is too long (max 1200 characters).');
+    clean.description = desc;
+  }
+  if (patch.photo_url !== undefined) {
+    const url = patch.photo_url === null || patch.photo_url === '' ? null : String(patch.photo_url).trim();
+    if (url && (!/^https?:\/\//i.test(url) || url.length > 500))
+      throw new Error('Photo must be a valid image URL (https://…) of at most 500 characters.');
+    clean.photo_url = url;
+  }
+  if (patch.city !== undefined) {
+    const city = String(patch.city || '').trim();
+    if (city.length > 60) throw new Error('City name too long.');
+    clean.city = city || null;
+  }
+  if (patch.address !== undefined) {
+    const address = String(patch.address || '').trim();
+    if (address.length > 200) throw new Error('Address is too long (max 200 characters).');
+    clean.address = address || null;
+  }
+  if (patch.contact_number !== undefined) {
+    const contact = String(patch.contact_number || '').trim();
+    if (contact.length > 40) throw new Error('Contact number is too long (max 40 characters).');
+    clean.contact_number = contact || null;
+  }
+  // Guarded fields: a business can never rename / move / verify itself.
+  if (
+    (patch.name !== undefined) ||
+    (patch.region !== undefined) ||
+    (patch.status !== undefined)
+  ) {
+    throw new Error('Hospital name, region and verification are managed by platform administrators.');
+  }
+
+  const { data, error } = await sb().rpc('business_update_my_hospital', { p_patch: clean });
+  if (error) throw fail(error, 'Could not save your hospital profile.');
+  return data;
+}
+
+// ---------- Doctor applications ----------
+// Doctors apply with their license ID (already on their profile) + a
+// note; the hospital admin verifies and accepts.
+
+async function applyToHospital(hospitalId, { note = '' } = {}) {
+  await requireUid();
+  const { data, error } = await sb().rpc('apply_to_hospital', {
+    p_hospital_id: hospitalId,
+    p_note: String(note || '').trim()
+  });
+  if (error) throw fail(error, 'Could not submit your application.');
+  return data || { success: true };
+}
+
+async function listMyDoctorApplications() {
+  await requireUid();
+  const { data, error } = await sb().rpc('list_my_doctor_applications');
+  if (error) throw fail(error, 'Could not load your applications.');
+  return data || [];
+}
+
+async function hospitalSetDoctorApplicationStatus(applicationId, status, reason = '') {
+  await requireUid();
+  const { data, error } = await sb().rpc('hospital_set_doctor_application_status', {
+    p_application_id: applicationId,
+    p_status: status,
+    p_reason: String(reason || '').trim()
+  });
+  if (error) throw fail(error, 'Could not review the application.');
+  return data;
+}
+
+// ---------- Hospital notifications (business admin inbox) ----------
+
+async function listHospitalNotifications() {
+  await requireUid();
+  const { data, error } = await sb().from('hospital_notifications')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(100);
+  if (error) throw fail(error, 'Could not load notifications.');
+  // RLS: only the hospital's admin sees its notifications.
+  return data || [];
+}
+
+async function markHospitalNotificationRead(id) {
+  await requireUid();
+  const { data, error } = await sb()
+    .from('hospital_notifications')
+    .update({ read: true })
+    .eq('id', id)
+    .select()
+    .single();
+  if (error) throw fail(error, 'Could not mark the notification.');
+  return data;
+}
+
+async function markAllHospitalNotificationsRead() {
+  await requireUid();
+  const { error } = await sb()
+    .from('hospital_notifications')
+    .update({ read: true })
+    .eq('read', false);
+  if (error) throw fail(error, 'Could not mark the notifications.');
+  return { success: true };
+}
+
+// ---------- Business stats ----------
+
+async function businessGetStats() {
+  await requireUid();
+  const { data, error } = await sb().rpc('business_get_stats');
+  if (error) throw fail(error, 'Could not load your statistics.');
+  return data;
 }
 
 async function adminCreateHospital(data) {
@@ -714,7 +1114,7 @@ async function listRecords() {
   const { data, error } = await sb()
     .from('donation_records')
     .select(
-      '*, request:donation_requests!donation_records_request_id_fkey(blood_type, region), donor:profiles!donation_records_donor_id_fkey(full_name), recorder:profiles!donation_records_recorded_by_fkey(full_name)'
+      '*, request:donation_requests!donation_records_request_id_fkey(blood_type, region, status, hospital_id), donor:profiles!donation_records_donor_id_fkey(full_name), doctor:profiles!donation_records_doctor_id_fkey(full_name), recorder:profiles!donation_records_recorded_by_fkey(full_name)'
     )
     .order('created_at', { ascending: false });
   if (error) throw fail(error, 'Could not load outcome records.');
@@ -723,9 +1123,25 @@ async function listRecords() {
     ...rec,
     request_blood_type: rec.request?.blood_type ?? null,
     request_region: rec.request?.region ?? null,
+    request_status: rec.request?.status ?? null,
+    request_hospital_id: rec.request?.hospital_id ?? null,
     donor_name: rec.donor?.full_name ?? null,
+    doctor_name: rec.doctor?.full_name ?? null,
     recorded_by_name: rec.recorder?.full_name ?? 'Administrator'
   }));
+}
+
+// Business variant: records for requests attached to MY hospital.
+async function businessListRecords() {
+  const uid = await requireUid();
+  const { data: h } = await sb()
+    .from('hospitals')
+    .select('id')
+    .eq('admin_id', uid)
+    .maybeSingle();
+  if (!h) throw new Error('No hospital is linked to your account.');
+  const all = await listRecords();
+  return all.filter((rec) => rec.request_hospital_id === h.id);
 }
 
 async function createRecord({ request_id, donor_id, outcome, reason }) {
@@ -740,11 +1156,25 @@ async function createRecord({ request_id, donor_id, outcome, reason }) {
   if (!r) throw new Error('Request not found.');
   if (r.status !== 'accepted') throw new Error('Outcome records can only be added to accepted requests.');
 
+  // v4: the assigned doctor (witness) travels with the record.
+  let doctorId = null;
+  if (donor_id) {
+    const { data: acc } = await sb()
+      .from('donor_acceptances')
+      .select('doctor_id')
+      .eq('request_id', request_id)
+      .eq('donor_id', donor_id)
+      .neq('status', 'withdrawn')
+      .maybeSingle();
+    doctorId = acc?.doctor_id ?? null;
+  }
+
   const { data: row, error } = await sb()
     .from('donation_records')
     .insert({
       request_id,
       donor_id: donor_id || null,
+      doctor_id: doctorId,
       outcome,
       reason: cleanReason,
       recorded_by: uid
@@ -867,20 +1297,38 @@ export default {
   setRequestStatus,
   getMatches,
 
+  // v4: donor acceptances + doctor assignment
+  acceptRequestAsDonor,
+  setAcceptanceDoctor,
+  withdrawAcceptance,
+  getMyDoctorAssignments,
+
   // messaging
   listConversations,
   getOrCreateConversation,
+  getOrCreateHospitalConversation,
   getMessages,
   sendMessage,
   subscribeMessages,
 
-  // hospitals
+  // hospitals (v4)
   listHospitals,
+  getHospital,
   adminCreateHospital,
   adminSetHospitalStatus,
+  businessGetMyHospital,
+  businessUpdateMyHospital,
+  applyToHospital,
+  listMyDoctorApplications,
+  hospitalSetDoctorApplicationStatus,
+  listHospitalNotifications,
+  markHospitalNotificationRead,
+  markAllHospitalNotificationsRead,
+  businessGetStats,
 
   // records
   listRecords,
+  businessListRecords,
   createRecord,
 
   // users & admin

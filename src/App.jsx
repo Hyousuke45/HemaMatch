@@ -19,6 +19,9 @@ import Donate from './pages/Donate';
 import Donors from './pages/Donors';
 import Messages from './pages/Messages';
 import Hospitals from './pages/Hospitals';
+import HospitalDetail from './pages/HospitalDetail';
+import MyHospital from './pages/MyHospital';
+import MyAssignments from './pages/MyAssignments';
 import NotFound from './pages/NotFound';
 
 import AdminDashboard from './pages/admin/AdminDashboard';
@@ -139,6 +142,33 @@ export default function App() {
               element={
                 <ProtectedRoute>
                   <Hospitals />
+                </ProtectedRoute>
+              }
+            />
+            {/* v4 — hospital detail (photo + description + roster) */}
+            <Route
+              path="/hospitals/:id"
+              element={
+                <ProtectedRoute>
+                  <HospitalDetail />
+                </ProtectedRoute>
+              }
+            />
+            {/* v4 — business (hospital admin) panel */}
+            <Route
+              path="/my-hospital"
+              element={
+                <ProtectedRoute>
+                  <MyHospital />
+                </ProtectedRoute>
+              }
+            />
+            {/* v4 — the doctor's witnessed transactions */}
+            <Route
+              path="/my-assignments"
+              element={
+                <ProtectedRoute>
+                  <MyAssignments />
                 </ProtectedRoute>
               }
             />

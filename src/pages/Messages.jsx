@@ -80,7 +80,9 @@ function ChatWindow({ conversation }) {
 
   return (
     <div className="card flex h-[calc(100dvh-14rem)] min-h-[420px] flex-col md:h-[calc(100vh-12rem)]">
-      {/* Chat header */}
+      {/* Chat header — v4: hospital conversations show the HOSPITAL NAME
+          (messages go to the admin); doctor chats show the doctor's
+          hospital beside their name so threads are never confusing. */}
       <div className="flex items-center gap-2 border-b border-cream/10 p-3 md:p-4">
         <Link
           to="/messages"
@@ -91,22 +93,58 @@ function ChatWindow({ conversation }) {
             <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12l7.5-7.5M21 12H3.5" />
           </svg>
         </Link>
-        <Avatar name={conversation.other_name} src={conversation.other_avatar_url} size="md" />
-        <div className="min-w-0">
-          <p className="truncate font-semibold text-cream">{conversation.other_name}</p>
-          <p className="text-xs text-cream/55">
-            {conversation.request_blood_type ? (
-              <>
-                About a {conversation.request_blood_type} request{' '}
-                {conversation.request_status && (
-                  <StatusBadge status={conversation.request_status} />
-                )}
-              </>
-            ) : (
-              'Direct conversation'
+
+        {conversation.hospital_id ? (
+          // Hospital conversation: a hospital badge instead of an avatar,
+          // with the hospital name as the title.
+          <>
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-cream/15 bg-blood text-cream" aria-hidden="true">
+              <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 21V6.2A2.2 2.2 0 016.7 4h10.6a2.2 2.2 0 012.2 2.2V21M4.5 21h15M9.4 4V2.6M14.6 4V2.6M12 8.2v6m-3-3h6" />
+              </svg>
+            </span>
+            <div className="min-w-0">
+              <p className="truncate font-semibold text-cream">
+                {conversation.hospital_name || 'Hospital'}
+              </p>
+              <p className="text-xs text-cream/55">
+                Hospital · messages go to the administrator
+              </p>
+            </div>
+            {conversation.hospital_id && (
+              <Link
+                to={`/hospitals/${conversation.hospital_id}`}
+                className="btn-secondary ml-auto shrink-0 !min-h-9 !px-3 !py-1 !text-xs"
+              >
+                View hospital
+              </Link>
             )}
-          </p>
-        </div>
+          </>
+        ) : (
+          <>
+            <Avatar name={conversation.other_name} src={conversation.other_avatar_url} size="md" />
+            <div className="min-w-0">
+              <p className="truncate font-semibold text-cream">
+                {conversation.other_name}
+                {/* A doctor's hospital appears beside their name (client rule) */}
+                {conversation.other_is_doctor && conversation.other_hospital_name && (
+                  <span className="ml-2 rounded-full border border-sky-400/30 bg-sky-400/10 px-2 py-0.5 align-middle text-xs font-semibold text-sky-300">
+                    {conversation.other_hospital_name}
+                  </span>
+                )}
+              </p>
+              <p className="truncate text-xs text-cream/55">
+                {conversation.other_is_doctor
+                  ? `Doctor${conversation.other_specialization ? ` · ${conversation.other_specialization}` : ''}`
+                  : conversation.request_blood_type
+                    ? `About a ${conversation.request_blood_type} request`
+                    : 'Direct conversation'}
+                {conversation.request_status && <StatusBadge status={conversation.request_status} />}
+              </p>
+            </div>
+          </>
+        )}
+
         {conversation.request_id && (
           <Link
             to={`/requests/${conversation.request_id}`}
@@ -216,7 +254,7 @@ export default function Messages() {
       {conversations.length === 0 ? (
         <EmptyState
           title="No conversations yet"
-          message="Conversations start from a request page — open a request and message the requester, or (if you created it) message one of your matched donors."
+          message="Conversations start from a request page (message the requester or a matched donor), or from a hospital page — messaging a hospital goes straight to its administrator."
         />
       ) : (
         <div className="grid gap-4 md:grid-cols-[320px_1fr]">
@@ -234,14 +272,30 @@ export default function Messages() {
                 }`}
               >
                 <div className="flex items-center gap-3">
-                  <Avatar name={c.other_name} src={c.other_avatar_url} size="sm" />
+                  {c.hospital_id ? (
+                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-cream/15 bg-blood text-cream" aria-hidden="true">
+                      <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 21V6.2A2.2 2.2 0 016.7 4h10.6a2.2 2.2 0 012.2 2.2V21M4.5 21h15M9.4 4V2.6M14.6 4V2.6M12 8.2v6m-3-3h6" />
+                      </svg>
+                    </span>
+                  ) : (
+                    <Avatar name={c.other_name} src={c.other_avatar_url} size="sm" />
+                  )}
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between gap-2">
-                      <p className="truncate text-sm font-semibold text-cream">{c.other_name}</p>
-                      {c.other_blood_type && <BloodTypeBadge type={c.other_blood_type} />}
+                      <p className="truncate text-sm font-semibold text-cream">
+                        {c.hospital_id ? c.hospital_name || 'Hospital' : c.other_name}
+                      </p>
+                      {c.other_blood_type && !c.hospital_id && <BloodTypeBadge type={c.other_blood_type} />}
                     </div>
+                    {/* Doctor threads carry their hospital; hospital threads
+                        are labelled so the list stays organized. */}
                     <p className="mt-0.5 truncate text-xs text-cream/60">
-                      {c.last_message || 'No messages yet'}
+                      {c.hospital_id
+                        ? 'Hospital · goes to the admin'
+                        : c.other_is_doctor && c.other_hospital_name
+                          ? `${c.other_hospital_name} · ${c.last_message || 'No messages yet'}`
+                          : c.last_message || 'No messages yet'}
                     </p>
                   </div>
                 </div>

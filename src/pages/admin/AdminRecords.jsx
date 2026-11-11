@@ -176,12 +176,13 @@ export default function AdminRecords() {
 
       {!loading && !error && records?.length > 0 && (
         <div className="card overflow-x-auto">
-          <table className="w-full min-w-[760px] text-sm">
+          <table className="w-full min-w-[860px] text-sm">
             <thead>
               <tr className="border-b border-cream/15 text-left text-xs uppercase tracking-wide text-cream/45">
                 <th className="px-4 py-3">Outcome</th>
                 <th className="px-4 py-3">Request</th>
                 <th className="px-4 py-3">Donor</th>
+                <th className="px-4 py-3">Witnessing doctor</th>
                 <th className="px-4 py-3">Reason</th>
                 <th className="px-4 py-3">Recorded</th>
               </tr>
@@ -199,6 +200,7 @@ export default function AdminRecords() {
                     </span>
                   </td>
                   <td className="px-4 py-3 font-medium text-cream">{rec.donor_name || '—'}</td>
+                  <td className="px-4 py-3 text-cream/75">{rec.doctor_name || '—'}</td>
                   <td className="max-w-[280px] px-4 py-3 text-cream/75">{rec.reason || '—'}</td>
                   <td className="px-4 py-3 text-xs text-cream/45">
                     {rec.recorded_by_name}

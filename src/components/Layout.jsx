@@ -42,11 +42,13 @@ export const TabIcon = {
   chat: icon('M21 12a8.4 8.4 0 01-8.4 8.4c-1.3 0-2.6-.3-3.7-.9L3 21l1.6-4.6A8.4 8.4 0 1121 12zM8.8 11.5h6.4M8.8 14.7h4'),
   hospital: icon('M4.5 21V6.2A2.2 2.2 0 016.7 4h10.6a2.2 2.2 0 012.2 2.2V21M4.5 21h15M9.4 4V2.6M14.6 4V2.6M12 8.2v6m-3-3h6'),
   user: icon('M15.8 8.6a3.8 3.8 0 11-7.6 0 3.8 3.8 0 017.6 0zM4.8 20.4c.9-3.6 3.8-5.7 7.2-5.7s6.3 2.1 7.2 5.7'),
-  admin: icon('M12 2.8l7.5 3v6.1c0 4.6-3.1 7.9-7.5 9.3-4.4-1.4-7.5-4.7-7.5-9.3V5.8l7.5-3zM9.2 12.2l2 2 3.6-3.8')
+  admin: icon('M12 2.8l7.5 3v6.1c0 4.6-3.1 7.9-7.5 9.3-4.4-1.4-7.5-4.7-7.5-9.3V5.8l7.5-3zM9.2 12.2l2 2 3.6-3.8'),
+  doctor: icon('M12 3v3m0 3.5V21m-6-8h12M9 6h6M6.8 6.5h2.4m5.6 0h2.4m-2.4 0a1.2 1.2 0 100 2.4 1.2 1.2 0 000-2.4zm-8 0a1.2 1.2 0 100 2.4 1.2 1.2 0 000-2.4z')
 };
 
-// Bottom navigation for phones (< md). Admins see Admin instead of Hospitals.
-function BottomTabBar({ user, isAdmin }) {
+// Bottom navigation for phones (< md). Role-aware: admins see Admin,
+// business admins see their Hospital panel, doctors see Assignments.
+function BottomTabBar({ user, isAdmin, isBusiness, isDoctor }) {
   const tabs = [
     { to: '/dashboard', label: 'Home', icon: TabIcon.home },
     { to: '/requests', label: 'Requests', icon: TabIcon.request },
@@ -54,16 +56,23 @@ function BottomTabBar({ user, isAdmin }) {
     { to: '/messages', label: 'Messages', icon: TabIcon.chat },
     isAdmin
       ? { to: '/admin', label: 'Admin', icon: TabIcon.admin }
-      : { to: '/hospitals', label: 'Hospitals', icon: TabIcon.hospital },
+      : isBusiness
+        ? { to: '/my-hospital', label: 'Hospital', icon: TabIcon.hospital }
+        : { to: '/hospitals', label: 'Hospitals', icon: TabIcon.hospital },
     { to: '/profile', label: 'Profile', icon: TabIcon.user }
   ];
+  // Doctors get a 7th slot for their assignment list only when they are
+  // not a business (business admins manage everything from the hospital panel).
+  if (isDoctor && !isBusiness && !isAdmin) {
+    tabs.splice(4, 0, { to: '/my-assignments', label: 'Witness', icon: TabIcon.doctor });
+  }
 
   return (
     <nav
       className="fixed inset-x-0 bottom-0 z-40 border-t border-cream/10 bg-ink/95 backdrop-blur md:hidden pb-safe"
       aria-label="Primary navigation"
     >
-      <div className="grid grid-cols-6">
+      <div className={classNames('grid', tabs.length === 7 ? 'grid-cols-7' : 'grid-cols-6')}>
         {tabs.map((t) => (
           <NavLink
             key={t.to}
@@ -94,7 +103,7 @@ const NAV_LINKS = [
 ];
 
 export default function Layout() {
-  const { user, isAdmin, logout } = useAuth();
+  const { user, isAdmin, isDoctor, isBusiness, logout } = useAuth();
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const navigate = useNavigate();
 
@@ -107,7 +116,12 @@ export default function Layout() {
     navigate('/login');
   };
 
-  const links = isAdmin ? [...NAV_LINKS, { to: '/admin', label: 'Admin' }] : NAV_LINKS;
+  let links = [...NAV_LINKS];
+  if (isAdmin) links = [...links, { to: '/admin', label: 'Admin' }];
+  else {
+    if (isBusiness) links = [...links, { to: '/my-hospital', label: 'My hospital' }];
+    if (isDoctor) links = [...links, { to: '/my-assignments', label: 'My assignments' }];
+  }
 
   return (
     <div className="flex min-h-screen flex-col bg-ink">
@@ -233,7 +247,9 @@ export default function Layout() {
       </footer>
 
       {/* ---------- Mobile bottom tab bar ---------- */}
-      {user && <BottomTabBar user={user} isAdmin={isAdmin} />}
+      {user && (
+        <BottomTabBar user={user} isAdmin={isAdmin} isBusiness={isBusiness} isDoctor={isDoctor} />
+      )}
     </div>
   );
 }

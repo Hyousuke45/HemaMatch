@@ -7,16 +7,23 @@ import DonorCard from '../components/DonorCard';
 import PublicProfileSheet from '../components/PublicProfileSheet';
 import { Alert, Avatar, BloodTypeBadge, ConfirmDialog, ErrorState, InlineLoader, PageLoader, StatusBadge } from '../components/ui';
 import { formatDate, formatDateTime } from '../lib/utils';
-import { MATCHING_DISCLAIMER, URGENCY } from '../lib/constants';
+import { MATCHING_DISCLAIMER, URGENCY, donorTypesFor } from '../lib/constants';
 
-// Request detail page: information, status actions, preliminary matching
-// (requester + admin only), and the recorded outcome (admin records).
-// v3: the requester and each matched donor can be viewed through a
-// directory-safe profile sheet — this is the ONLY place profile views
-// exist (client requirement), so no standalone public profile pages.
+// Request detail page: information, status actions, the v4 donor-accept
+// flow (with doctor assignment from the request's hospital), preliminary
+// matching (requester + admin only) and the recorded outcome.
+//
+// v4 rules implemented here:
+//   * A DONOR (any signed-in non-requester user — every account type
+//     inherits the donor/recipient abilities) can accept the request.
+//     They get a doctor assigned automatically, or they can pick one —
+//     only from the hospital on this request.
+//   * The hospital's business admin and the assigned doctor can manage
+//     the request status and record outcomes (the doctor is the
+//     witness / source of truth).
 export default function RequestDetail() {
   const { id } = useParams();
-  const { user, isAdmin } = useAuth();
+  const { user, isAdmin, isDoctor, isBusiness } = useAuth();
   const navigate = useNavigate();
 
   const { data: request, loading, error, reload } = useAsync(() => dataService.getRequest(id), [id]);
@@ -32,9 +39,30 @@ export default function RequestDetail() {
   const [confirm, setConfirm] = useState(null); // { kind, title, message, action, requireReason, danger }
   const [actionError, setActionError] = useState(null);
   const [busyAction, setBusyAction] = useState(false);
-  const [viewProfileId, setViewProfileId] = useState(null); // v3 profile sheet
+  const [viewProfileId, setViewProfileId] = useState(null); // profile sheet
+
+  // v4: donor accept flow state
+  const [acceptOpen, setAcceptOpen] = useState(false);
+  const [chosenDoctor, setChosenDoctor] = useState('');
+  const [acceptError, setAcceptError] = useState(null);
+  const [acceptBusy, setAcceptBusy] = useState(false);
+  const [doctorEditOpen, setDoctorEditOpen] = useState(null); // acceptance being re-assigned
+  const [newDoctor, setNewDoctor] = useState('');
 
   const isOwner = request && request.requester_id === user.id;
+  // v4.1: preferred donor types is now a multi-select array.
+  const preferredTypes = Array.isArray(request?.preferred_donor_types)
+    ? request.preferred_donor_types
+    : [];
+  // Who may manage this request beyond the owner: platform admins, the
+  // hospital's business admin, and the assigned doctor (the witness).
+  // Every action below is re-checked by the backend.
+  const canManage =
+    request &&
+    (isAdmin ||
+      isOwner ||
+      (isBusiness && request.hospital_id) ||
+      request.acceptances?.some((a) => a.doctor_id === user.id && a.status === 'accepted'));
 
   const startConversationWith = async (otherUserId) => {
     setActionError(null);
@@ -54,12 +82,68 @@ export default function RequestDetail() {
     await reload();
   };
 
+  // ---------- v4: donor accepts the request ----------
+  const openAcceptFlow = () => {
+    setAcceptError(null);
+    setChosenDoctor('');
+    setAcceptOpen(true);
+  };
+
+  const handleAccept = async () => {
+    setAcceptError(null);
+    setAcceptBusy(true);
+    try {
+      await dataService.acceptRequestAsDonor(id, chosenDoctor || null);
+      setAcceptOpen(false);
+      await reload();
+    } catch (err) {
+      setAcceptError(err?.message || 'Could not accept this request.');
+    } finally {
+      setAcceptBusy(false);
+    }
+  };
+
+  const openDoctorEdit = (acceptance) => {
+    setAcceptError(null);
+    setNewDoctor(acceptance.doctor_id || '');
+    setDoctorEditOpen(acceptance);
+  };
+
+  const handleDoctorChange = async () => {
+    setAcceptError(null);
+    setAcceptBusy(true);
+    try {
+      await dataService.setAcceptanceDoctor(doctorEditOpen.id, newDoctor);
+      setDoctorEditOpen(null);
+      await reload();
+    } catch (err) {
+      setAcceptError(err?.message || 'Could not change the assigned doctor.');
+    } finally {
+      setAcceptBusy(false);
+    }
+  };
+
+  const handleWithdraw = (acceptance) =>
+    setConfirm({
+      kind: 'withdraw',
+      title: 'Withdraw your acceptance?',
+      message:
+        'The requester and the assigned doctor will no longer expect you for this request. You can accept again while it is still open.',
+      confirmLabel: 'Withdraw',
+      danger: true,
+      action: async () => {
+        await dataService.withdrawAcceptance(acceptance.id);
+        await reload();
+      }
+    });
+
+  // ---------- status actions ----------
   const openAcceptConfirm = () =>
     setConfirm({
       kind: 'accept',
       title: 'Mark this request as Accepted?',
       message:
-        'Accepted means a participant (usually a donor you coordinated with) has agreed to proceed. It is not proof that a donation has happened. Only an administrator can later mark it Completed.',
+        'Accepted means a participant (usually a donor you coordinated with) has agreed to proceed. It is not proof that a donation has happened.',
       confirmLabel: 'Mark as Accepted',
       action: (reason) => runStatusAction(() => dataService.setRequestStatus(id, 'accepted', reason))
     });
@@ -78,7 +162,7 @@ export default function RequestDetail() {
     setConfirm({
       kind: 'admin-status',
       title: `Change status to ${status}?`,
-      message: `Administrator action — a reason is recommended and the change is written to the activity log.`,
+      message: `A reason is recommended and the change is written to the activity log.`,
       confirmLabel: `Set ${status}`,
       danger: true,
       requireReason: status === 'cancelled' || status === 'completed',
@@ -92,6 +176,12 @@ export default function RequestDetail() {
         <ErrorState message={error} onRetry={reload} />
       </div>
     );
+
+  const myAcceptance = request.my_acceptance;
+  const hospitalDoctors = request.hospital_doctors || [];
+  const acceptances = request.acceptances || [];
+  const openForDonors = ['pending', 'accepted'].includes(request.status);
+  const alreadyAccepted = Boolean(myAcceptance);
 
   return (
     <div className="mx-auto max-w-3xl">
@@ -144,9 +234,11 @@ export default function RequestDetail() {
             <div>
               <dt className="text-cream/45">Hospital</dt>
               <dd className="mt-0.5 font-medium text-cream">
-                {request.hospital_name ? (
+                {request.hospital_id ? (
                   <span className="flex items-center gap-1.5">
-                    {request.hospital_name}
+                    <Link to={`/hospitals/${request.hospital_id}`} className="text-gold hover:underline">
+                      {request.hospital_name}
+                    </Link>
                     {request.hospital_status === 'verified' && (
                       <StatusBadge status="verified" label="Verified" />
                     )}
@@ -159,6 +251,17 @@ export default function RequestDetail() {
             <div>
               <dt className="text-cream/45">Needed by</dt>
               <dd className="mt-0.5 font-medium text-cream">{formatDate(request.needed_by)}</dd>
+            </div>
+            <div className="sm:col-span-2">
+              <dt className="text-cream/45">Compatible donor types (ABO/Rh)</dt>
+              <dd className="mt-0.5 font-medium text-cream">
+                {donorTypesFor(request.blood_type).join(', ')}
+                {preferredTypes.length > 0 && (
+                  <span className="ml-2 rounded-full bg-gold/15 px-2 py-0.5 text-xs font-semibold text-gold-light">
+                    Prefers {preferredTypes.join(', ')} donors
+                  </span>
+                )}
+              </dd>
             </div>
             <div className="sm:col-span-2">
               <dt className="text-cream/45">Details</dt>
@@ -186,11 +289,18 @@ export default function RequestDetail() {
               </button>
             )}
 
-            {/* Non-owner donor: reach the requester */}
-            {!isOwner && ['pending', 'accepted'].includes(request.status) && (
+            {/* v4: any donor/recipient (i.e. every account type) can accept */}
+            {!isOwner && openForDonors && !alreadyAccepted && (
+              <button type="button" className="btn-primary" onClick={openAcceptFlow}>
+                Accept as donor
+              </button>
+            )}
+
+            {/* Non-owner: reach the requester */}
+            {!isOwner && (
               <button
                 type="button"
-                className="btn-primary"
+                className="btn-secondary"
                 disabled={busyAction}
                 onClick={() => startConversationWith(request.requester_id)}
               >
@@ -198,11 +308,11 @@ export default function RequestDetail() {
               </button>
             )}
 
-            {/* Admin corrections */}
-            {isAdmin && request.status !== 'completed' && request.status !== 'cancelled' && (
+            {/* v4: the hospital's business admin / assigned doctor controls */}
+            {canManage && !isOwner && request.status !== 'completed' && request.status !== 'cancelled' && (
               <div className="flex w-full flex-wrap items-center gap-2 rounded-lg border border-cream/10 bg-ink p-3">
                 <span className="text-xs font-semibold uppercase tracking-wide text-cream/45">
-                  Admin controls
+                  {isAdmin ? 'Admin controls' : isBusiness ? 'Hospital controls' : 'Assigned doctor controls'}
                 </span>
                 {request.status === 'pending' && (
                   <button type="button" className="btn-secondary !py-1.5 !text-xs" onClick={() => openAdminStatusConfirm('accepted')}>
@@ -226,7 +336,103 @@ export default function RequestDetail() {
           )}
         </div>
 
-        {/* Outcome record (written by administrators) */}
+        {/* v4: my acceptance (donor view) — the assigned doctor card */}
+        {myAcceptance && (
+          <div className="card p-6">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="font-semibold text-cream">You are donating for this request</p>
+              <div className="flex items-center gap-2">
+                <StatusBadge status={myAcceptance.status === 'completed' ? 'completed' : 'accepted'} label={myAcceptance.status === 'completed' ? 'Completed' : 'Active acceptance'} />
+                {myAcceptance.status === 'accepted' && (
+                  <button
+                    type="button"
+                    className="btn-secondary !py-1.5 !text-xs"
+                    onClick={() => openDoctorEdit(myAcceptance)}
+                  >
+                    Change doctor
+                  </button>
+                )}
+                {myAcceptance.status === 'accepted' && (
+                  <button type="button" className="btn-danger !py-1.5 !text-xs" onClick={() => handleWithdraw(myAcceptance)}>
+                    Withdraw
+                  </button>
+                )}
+              </div>
+            </div>
+            <div className="mt-4 rounded-xl border border-cream/10 bg-ink p-4">
+              {myAcceptance.doctor_name ? (
+                <div className="flex items-start gap-3">
+                  <Avatar name={myAcceptance.doctor_name} size="lg" />
+                  <div>
+                    <p className="font-semibold text-cream">
+                      {myAcceptance.doctor_name}
+                      <span className="ml-2 text-xs font-medium text-cream/55">
+                        Assigned doctor · witness for this transaction
+                      </span>
+                    </p>
+                    {myAcceptance.doctor_specialization && (
+                      <p className="text-xs text-cream/65">{myAcceptance.doctor_specialization}</p>
+                    )}
+                    {myAcceptance.doctor_hospital_name && (
+                      <p className="mt-0.5 text-xs text-cream/55">{myAcceptance.doctor_hospital_name}</p>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <p className="text-sm text-cream/65">
+                  No doctor is assigned — this request has no hospital with a doctor roster, so no
+                  witness could be assigned. The hospital will coordinate directly.
+                </p>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* v4: all acceptances — visible to the requester, admins and the
+            hospital admin / assigned doctor (the middleman view) */}
+        {acceptances.length > 0 && (isOwner || isAdmin || canManage) && (
+          <div className="card p-6">
+            <p className="font-semibold text-cream">
+              Donors &amp; assigned doctors {isOwner && <span className="text-sm font-normal text-cream/55">(visible to you as the requester)</span>}
+            </p>
+            <div className="mt-4 space-y-3">
+              {acceptances.map((a) => (
+                <div key={a.id} className="flex flex-wrap items-center gap-3 rounded-xl border border-cream/10 bg-ink p-4">
+                  <Avatar name={a.donor_name} src={a.donor_avatar_url} size="lg" />
+                  <div className="min-w-0 flex-1">
+                    <p className="flex flex-wrap items-center gap-2 font-semibold text-cream">
+                      {a.donor_name}
+                      {a.donor_blood_type && <BloodTypeBadge type={a.donor_blood_type} />}
+                      <StatusBadge status={a.status === 'completed' ? 'completed' : 'accepted'} label={a.status === 'completed' ? 'Completed' : 'Accepted'} />
+                    </p>
+                    <p className="mt-1 text-xs text-cream/60">
+                      {a.doctor_name ? (
+                        <>
+                          Assigned doctor:{' '}
+                          <span className="font-semibold text-cream/85">{a.doctor_name}</span>
+                          {a.doctor_hospital_name ? ` · ${a.doctor_hospital_name}` : ''}
+                        </>
+                      ) : (
+                        'No doctor assigned (no hospital roster on this request).'
+                      )}
+                    </p>
+                  </div>
+                  {a.doctor_id && (
+                    <button
+                      type="button"
+                      className="btn-secondary !min-h-9 !px-3 !py-1.5 !text-xs"
+                      onClick={() => startConversationWith(a.doctor_id)}
+                    >
+                      Message doctor
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Outcome record */}
         {request.record && (
           <div className="card p-6">
             <div className="flex items-center justify-between">
@@ -238,6 +444,7 @@ export default function RequestDetail() {
             </p>
             <p className="mt-3 text-xs text-cream/45">
               {request.record.donor_name ? `Donor: ${request.record.donor_name} · ` : ''}
+              {request.record.doctor_name ? `Witnessed by: ${request.record.doctor_name} · ` : ''}
               Recorded by {request.record.recorded_by_name} · {formatDateTime(request.record.created_at)}
             </p>
             {request.record.outcome === 'failed' && (
@@ -287,8 +494,10 @@ export default function RequestDetail() {
                   Compatible donor blood types:{' '}
                   <span className="font-semibold text-cream">
                     {matches.compatible_types.join(', ')}
-                  </span>{' '}
-                  · same-region donors shown first.
+                  </span>
+                  {preferredTypes.length > 0
+                    ? ` · prefers ${preferredTypes.join(', ')} donors (shown first)`
+                    : ' · same-region donors shown first'}.
                 </p>
                 <div className="grid gap-4 md:grid-cols-2">
                   {matches.donors.map((d) => (
@@ -305,6 +514,123 @@ export default function RequestDetail() {
           </section>
         )}
       </div>
+
+      {/* v4 — donor accept dialog: pick a doctor from the request's hospital */}
+      {acceptOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 sm:items-center sm:px-4"
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="card max-h-[85vh] w-full max-w-md overflow-y-auto rounded-b-none p-6 pb-safe sm:rounded-b-2xl">
+            <h3 className="text-lg font-semibold text-cream">Accept as donor</h3>
+            <p className="mt-2 text-sm leading-relaxed text-cream/75">
+              Thank you! A doctor will be assigned to witness your donation. You can also choose
+              the doctor yourself — only doctors from{' '}
+              <span className="font-semibold text-cream">{request.hospital_name || 'the hospital on this request'}</span>{' '}
+              are selectable.
+            </p>
+
+            <div className="mt-4">
+              <label className="label" htmlFor="chosen_doctor">
+                Assigned doctor
+              </label>
+              {hospitalDoctors.length > 0 ? (
+                <>
+                  <select
+                    id="chosen_doctor"
+                    className="input"
+                    value={chosenDoctor}
+                    onChange={(e) => setChosenDoctor(e.target.value)}
+                  >
+                    <option value="">Assign automatically ({hospitalDoctors[0].full_name})</option>
+                    {hospitalDoctors.map((doc) => (
+                      <option key={doc.id} value={doc.id}>
+                        {doc.full_name}
+                        {doc.specialization ? ` — ${doc.specialization}` : ''}
+                        {doc.via_application === false ? ' (hospital admin)' : ''}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="mt-1 text-xs text-cream/45">
+                    Doctors listed here belong to {request.hospital_name}. You can change the
+                    assigned doctor later while your acceptance is active.
+                  </p>
+                </>
+              ) : (
+                <p className="rounded-xl border border-cream/10 bg-ink p-3 text-sm text-cream/65">
+                  {request.hospital_name
+                    ? `${request.hospital_name} has no verified doctors yet — no doctor can be assigned. The hospital admin will coordinate directly.`
+                    : 'This request has no hospital, so no doctor can be assigned. The requester will coordinate directly.'}
+                </p>
+              )}
+            </div>
+
+            {acceptError && (
+              <p className="mt-3 text-sm font-medium text-red-400" role="alert">
+                {acceptError}
+              </p>
+            )}
+
+            <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <button type="button" className="btn-secondary" onClick={() => setAcceptOpen(false)} disabled={acceptBusy}>
+                Cancel
+              </button>
+              <button type="button" className="btn-primary" onClick={handleAccept} disabled={acceptBusy}>
+                {acceptBusy ? 'Accepting…' : 'Accept request'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* v4 — change assigned doctor dialog (donor's active acceptance) */}
+      {doctorEditOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 sm:items-center sm:px-4"
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="card w-full max-w-md rounded-b-none p-6 pb-safe sm:rounded-b-2xl">
+            <h3 className="text-lg font-semibold text-cream">Change assigned doctor</h3>
+            <p className="mt-2 text-sm leading-relaxed text-cream/75">
+              Pick another doctor from {request.hospital_name || 'the hospital on this request'}.
+            </p>
+            <div className="mt-4">
+              <label className="label" htmlFor="new_doctor">
+                Doctor
+              </label>
+              <select
+                id="new_doctor"
+                className="input"
+                value={newDoctor}
+                onChange={(e) => setNewDoctor(e.target.value)}
+              >
+                {hospitalDoctors.map((doc) => (
+                  <option key={doc.id} value={doc.id}>
+                    {doc.full_name}
+                    {doc.specialization ? ` — ${doc.specialization}` : ''}
+                    {doc.via_application === false ? ' (hospital admin)' : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {acceptError && (
+              <p className="mt-3 text-sm font-medium text-red-400" role="alert">
+                {acceptError}
+              </p>
+            )}
+            <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <button type="button" className="btn-secondary" onClick={() => setDoctorEditOpen(null)} disabled={acceptBusy}>
+                Cancel
+              </button>
+              <button type="button" className="btn-primary" onClick={handleDoctorChange} disabled={acceptBusy || !newDoctor}>
+                {acceptBusy ? 'Saving…' : 'Change doctor'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* v3 — directory-safe profile sheet (request-detail only) */}
       <PublicProfileSheet

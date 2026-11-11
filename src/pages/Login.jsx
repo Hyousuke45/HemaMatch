@@ -9,7 +9,10 @@ import { isMock } from '../lib/dataService';
 const DEMO_ACCOUNTS = [
   { label: 'Admin', email: 'admin@demo.com', password: 'admin123' },
   { label: 'Donor (Maria, O-)', email: 'maria@demo.com', password: 'maria123' },
-  { label: 'Requester (Grace, AB+)', email: 'grace@demo.com', password: 'grace123' }
+  { label: 'Requester (Grace, AB+)', email: 'grace@demo.com', password: 'grace123' },
+  { label: 'Doctor (Dr. Ramos)', email: 'dr.ramos@demo.com', password: 'doctor123' },
+  { label: 'Business (St. Mary admin)', email: 'biz.stmary@demo.com', password: 'biz12345' },
+  { label: 'Business+Doctor (Davao)', email: 'biz.davao@demo.com', password: 'biz12345' }
 ];
 
 export default function Login() {

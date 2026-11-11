@@ -1,8 +1,201 @@
 # HemaMatch — Change Report
 
-**v3.1 — November 3, 2026** (latest · see the v3.1 section below)
+**v4.1 — November 7, 2026** (latest) · compatible donor types as individual checkboxes (multi-select, varies by patient blood type), hospital field now required
+**v4 — November 7, 2026** · account-type hierarchy (Donor/Recipient · Doctor · Business), compatible-donor dropdown, hospital notifications, donor-accept flow with assigned doctors, doctor applications, hospital directory with photo pages, hospital messaging
+**v3.1 — November 3, 2026** · Donate tab in the mobile bottom navigation, real app icon files
 **v3 — October 31, 2026** · black theme, profile views on request detail, donation offers, profile photos
 **v2 — October 25, 2026** · rebrand, dark theme, mobile-first, Phase 2 Supabase backend
+
+---
+
+# HemaMatch — Change Report (v4.1)
+
+**Date:** November 7, 2026 · **Scope:** two client asks on the request form — (1) the
+compatible blood donors should display as individual checkboxes that vary with the
+receiver's blood type instead of a single dropdown entry, and (2) the hospital is no
+longer optional ("where would they do the process then").
+
+## 1. Compatible donor types — one checkbox per blood type
+
+"Preferred donor blood type" (single-select dropdown) became **"Preferred donor blood
+types"** — a row of pill-style checkboxes, one **per blood type that can donate to the
+chosen patient type**:
+
+| Patient type | Checkboxes shown |
+|---|---|
+| O- | O- |
+| O+ / A- / B- | 2 options each |
+| A+ / B+ | 4 options each |
+| AB- | 4 options |
+| AB+ | all 8 types |
+
+Several can be checked at once (the requester of an A- request can prefer O- **and**
+A- donors). Changing the patient's blood type keeps only the still-compatible checked
+types, so an incompatible preference can never be submitted — the same guarantee the
+dropdown had. Checked types rank first in matching (each donor card now shows a gold
+**"Preferred type"** badge; previously the preference was sorted on but never
+displayed), and the request detail page shows the full list ("Prefers O-, A- donors").
+
+The data model changed accordingly: `donation_requests.preferred_donor_type` (single
+text) → **`preferred_donor_types text[]`** — in the mock backend (localStorage store
+key bumped to `hemamatch_mock_db_v5`), the Supabase client, and `schema.sql`. The SQL
+upgrade path carries an old single choice over as a one-element array and drops the
+old column. The server still re-validates every checked type against the ABO/Rh
+matrix in both backends, and the `get_matching_donors` RPC now also returns and sorts
+by `preferred_type`.
+
+## 2. The hospital is required
+
+The request form's hospital dropdown lost its "Not specified" option — every request
+now names the hospital where the donation process takes place. The label shows the
+required marker, the browser blocks submit on an empty choice, and both backends
+(mock + Supabase) reject a missing hospital (`validateRequestData`) and still only
+accept administrator-verified hospitals. `schema.sql` makes the column
+`hospital_id uuid not null` after backfilling any old rows to St. Mary General
+Hospital (the demo hospital — adjust before running on real data).
+
+Because of this, the demo data gained a fourth verified hospital in Region VI
+(Western Visayas): **Western Visayas Medical Center**, Iloilo City, administered by
+the new business demo account `biz.western@demo.com / biz12345` (Teresita Uy). The
+two Iloilo demo requests (Cristina's A+ and Paolo's A-) now point at it, so no seeded
+request is left hospital-less.
+
+**Verified:** pglast (libpg_query) parses schema.sql + seed.sql clean; browser-tested
+at 390×844 — checkbox counts per patient type (O- → 1 … AB+ → 8), multi-check,
+preference pruning on patient-type change, hospital-required submit block, request
+creation, edit form pre-fill, matching order (preferred types first) and the badge;
+zero console/page errors; production build passes.
+
+---
+
+# HemaMatch — Change Report (v4)
+
+**Date:** November 7, 2026 · **Scope:** the client's role-hierarchy request — account
+types with inheritance, blood-compatibility dropdown, hospital notifications, doctor
+assignment on donor acceptance, doctor applications with hospital-admin verification,
+the public hospital directory with photo pages, and hospital messaging.
+
+## 1. Account types with inheritance (registration)
+
+Registration now asks **"I am registering as…"** with three options:
+
+| Type | Inherits | Extra abilities |
+|---|---|---|
+| **Donor / Recipient** (`user`) | — (the base) | donate blood, request blood |
+| **Doctor** (`doctor`) | everything the base has | hospital affiliation (after applying and being verified), assigned as the **witness / middleman / source of truth** for transactions |
+| **Business (hospital)** (`business`) | everything the base has | admin of a hospital: track records, manage the hospital, review doctor applications — and **inherits the Doctor abilities ONLY if the admin is also a licensed doctor** (`profiles.is_doctor` + license fields, editable on the Profile page) |
+
+- Doctor registrations require a **license/PRC ID and contact number** (specialization
+  optional); businesses create their hospital record (name, region, city, address,
+  contact, description) which starts **Pending** until a platform admin verifies it.
+- The mobile tab bar adapts: business accounts get a **Hospital** tab, doctor accounts
+  get a **Witness (assignments)** tab, admins keep **Admin**.
+- The admin user list shows account types with doctor license details; the user ↔ admin
+  toggle is disabled for doctor/business accounts (their type is tied to hospital links).
+- **Note on "sell blood":** the client mentioned the base user can also *sell* blood.
+  This is deliberately **not** implemented — RA 7719 (National Blood Services Act of
+  1994) prohibits the commercial sale of blood in the Philippines, and the app keeps
+  donation voluntary and non-remunerated everywhere.
+
+## 2. Compatible-donor dropdown on requests
+
+When a requester selects the blood type needed, a new **"Preferred donor blood type"**
+dropdown lists **only the types that can donate to that patient type** (e.g. an O+
+patient sees O- and O+ only), each labelled with what it donates to. Choosing one is
+optional; the chosen type ranks first in matching. The compatibility matrix is defined
+once in `constants.js` (both directions) and is enforced again by the backend — an
+incompatible choice is rejected, and the Supabase `guard_acceptance` trigger re-checks
+the donor's type on acceptance.
+
+## 3. Hospital notifications
+
+Attaching a hospital to a request (at creation or edit) writes a notification that
+lands in the **business admin's inbox** (`My hospital → Notifications`). Donor
+acceptances and doctor applications produce notifications too, with unread badges and
+"mark read / mark all read". In Supabase mode these are written by the
+`notify_request_hospital` trigger and the application/acceptance triggers — clients
+have no INSERT permission on `hospital_notifications`.
+
+## 4. Donor acceptance + assigned doctor
+
+Any signed-in user (every account type inherits the donor abilities) can **Accept as
+donor** on an open request. A doctor from **the hospital on the request** is
+**auto-assigned** (first roster doctor) as the transaction's witness — or the donor
+**chooses the doctor** from a dropdown restricted to that hospital's roster (roster +
+the hospital admin when they are also a doctor). The doctor can be changed later while
+the acceptance is active; a donor can withdraw. The first acceptance moves the request
+to **Accepted**, and the hospital is notified. Requesters (and the hospital/assigned
+doctor) see the acceptance list with each donor's assigned doctor and a
+**Message doctor** shortcut.
+
+## 5. Doctor applications (hospital-admin verification)
+
+Doctors apply to a hospital from its public page — the dialog shows the credentials
+being sent (license ID, specialization, contact number, all from the profile) plus an
+optional note. The hospital admin reviews it in `My hospital → Doctor applications`
+with the license and contact details visible, then **Accepts** (the doctor joins the
+roster — one hospital per doctor, enforced server-side) or **Rejects** (a reason is
+required; the doctor may re-apply). Doctors track their applications on their Profile
+page.
+
+## 6. Hospital directory + photo pages
+
+- **Hospitals** page: search by name/city/region/description + a region filter; cards
+  show the photo (with gradient fade into the card), a description snippet, location
+  and doctor count. Regular users see verified hospitals only.
+- **Hospital detail page**: the hospital **photo as the background with a gradient
+  fade into the description** (client requirement), location, contact, the business
+  admin, and the **doctor roster with license IDs and contact numbers**; doctors can
+  apply from here; anyone can **Message hospital**.
+- **My hospital** (business): stats, notifications, application review, profile editor
+  (photo via Cloudinary or URL, description, location, contact) and outcome records
+  with the witnessing doctor. Name/region/verification stay platform-admin-only
+  (enforced by the `protect_hospital` trigger in Supabase mode).
+
+## 7. Messaging changes
+
+- **Message hospital** starts a conversation that goes to the hospital's admin; the
+  thread header shows the **hospital name** ("Hospital · messages go to the
+  administrator") with a **View hospital** link — in both participants' views and the
+  conversation list.
+- Doctor chats show the **doctor's hospital beside their name** (a badge in the header,
+  and a prefix in the conversation list) so threads are never confusing.
+
+## 8. Doctor witness view + records
+
+- `My assignments` (doctors, and business admins who are doctors): every transaction
+  they witness — request, donor, hospital, outcome — with links to coordinate.
+- Outcome records now carry the **witnessing doctor** (auto-resolved from the donor's
+  acceptance). Recording rights widened server-side: platform admin, the hospital's
+  business admin, or the assigned doctor. A successful record still closes the request.
+- `guard_request_update` (Supabase) now lets the hospital admin and the assigned doctor
+  manage statuses — the doctor is the middleman for their transactions.
+
+## 9. Database (supabase/schema.sql — section 11, idempotent upgrade)
+
+New: `hospital_doctors` (applications/roster, one accepted row per doctor),
+`donor_acceptances` (donor + assigned doctor + status), `hospital_notifications`;
+new columns `profiles.is_doctor/doctor_license_id/specialization/contact_number`,
+`hospitals.admin_id/description/photo_url`, `donation_requests.preferred_donor_type` (renamed to the `preferred_donor_types` array in v4.1),
+`conversations.hospital_id`, `donation_records.doctor_id`; widened
+`profiles.role` to `user|doctor|business|admin`. New RPCs: `get_hospital_doctors`,
+`get_hospital_detail`, `accept_request_as_donor`, `set_acceptance_doctor`,
+`withdraw_acceptance`, `get_my_doctor_assignments`, `apply_to_hospital`,
+`list_my_doctor_applications`, `hospital_set_doctor_application_status`,
+`business_get_my_hospital`, `business_update_my_hospital`, `business_get_stats`,
+`start_hospital_conversation`. Fixed a pre-existing bug in the
+`guard_acceptance` matrix (AB+ was treated as a universal donor; it donates to AB+
+only). Mock-mode store key bumped to `hemamatch_mock_db_v4` (auto re-seeds).
+
+## 10. Verification
+
+- `npm run build` passes; dev server boots and serves the app.
+- A 74-check smoke test (`scripts/smoke_test.mjs` on the repo) runs the entire mock
+  backend through every new flow — all pass, including the rejection paths (doctor
+  outside the hospital, incompatible preferred type, self-verification, double
+  acceptance, doctor already under another hospital…).
+- The compatibility matrix in `constants.js` and both SQL guards were programmatically
+  checked against the client's exact spec.
 
 ---
 

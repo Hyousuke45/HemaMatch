@@ -3,11 +3,18 @@ import { useNavigate, useParams } from 'react-router-dom';
 import useAsync from '../hooks/useAsync';
 import dataService from '../lib/dataService';
 import { Alert, InlineLoader } from '../components/ui';
-import { BLOOD_TYPES, REGIONS, URGENCY } from '../lib/constants';
+import { BLOOD_TYPES, REGIONS, URGENCY, donorTypesFor } from '../lib/constants';
 
 // Create (route /requests/new) and edit (route /requests/:id/edit).
 // Only the requester can edit, and only while the request is Pending —
-// enforced by the backend, mirrored by RLS in Phase 2.
+// enforced by the backend, mirrored by RLS.
+//
+// v4.1 changes (client round 3):
+//   * "Preferred donor blood types" is a CHECKBOX per compatible type —
+//     the options vary with the patient's blood type (O- patient → one
+//     checkbox; AB+ patient → eight), and several can be checked at once.
+//   * The hospital is REQUIRED — the donation process happens there
+//     (witnessed by its assigned doctors), so "not specified" is gone.
 export default function RequestForm() {
   const { id } = useParams();
   const isEdit = Boolean(id);
@@ -21,6 +28,7 @@ export default function RequestForm() {
 
   const [form, setForm] = useState({
     blood_type: '',
+    preferred_donor_types: [],
     units_needed: 1,
     region: '',
     hospital_id: '',
@@ -35,6 +43,7 @@ export default function RequestForm() {
     if (existing) {
       setForm({
         blood_type: existing.blood_type,
+        preferred_donor_types: existing.preferred_donor_types || [],
         units_needed: existing.units_needed,
         region: existing.region,
         hospital_id: existing.hospital_id || '',
@@ -47,15 +56,47 @@ export default function RequestForm() {
 
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
 
+  // One checkbox per compatible donor type. Toggling adds/removes the
+  // type from the selection.
+  const togglePreferredType = (type) =>
+    setForm((f) => ({
+      ...f,
+      preferred_donor_types: f.preferred_donor_types.includes(type)
+        ? f.preferred_donor_types.filter((t) => t !== type)
+        : [...f.preferred_donor_types, type]
+    }));
+
+  // The compatible-donor checkboxes follow the patient's blood type
+  // (ABO/Rh matrix). Changing the patient type keeps only the choices
+  // that are still compatible, so an incompatible pair can never be
+  // submitted.
+  const handleBloodTypeChange = (e) => {
+    const bloodType = e.target.value;
+    setForm((f) => ({
+      ...f,
+      blood_type: bloodType,
+      preferred_donor_types: bloodType
+        ? f.preferred_donor_types.filter((t) => donorTypesFor(bloodType).includes(t))
+        : []
+    }));
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError(null);
     if (!form.blood_type) return setError('Please choose the blood type needed.');
     if (!form.region) return setError('Please choose a region.');
+    if (!form.hospital_id)
+      return setError('Please choose the hospital where the donation process will take place.');
 
     setBusy(true);
     try {
-      const payload = { ...form, hospital_id: form.hospital_id || null, needed_by: form.needed_by || null };
+      const payload = {
+        ...form,
+        preferred_donor_types: form.preferred_donor_types,
+        hospital_id: form.hospital_id,
+        needed_by: form.needed_by || null
+      };
       const saved = isEdit
         ? await dataService.updateRequest(id, payload)
         : await dataService.createRequest(payload);
@@ -77,6 +118,8 @@ export default function RequestForm() {
 
   // Verified hospitals only (Light hospital scope).
   const verifiedHospitals = (hospitals || []).filter((h) => h.status === 'verified');
+  const compatibleDonors = form.blood_type ? donorTypesFor(form.blood_type) : [];
+  const selectedHospital = verifiedHospitals.find((h) => h.id === form.hospital_id);
 
   return (
     <div className="mx-auto max-w-2xl">
@@ -94,7 +137,13 @@ export default function RequestForm() {
             <label className="label" htmlFor="blood_type">
               Blood type needed <span className="text-gold">*</span>
             </label>
-            <select id="blood_type" className="input" value={form.blood_type} onChange={set('blood_type')} required>
+            <select
+              id="blood_type"
+              className="input"
+              value={form.blood_type}
+              onChange={handleBloodTypeChange}
+              required
+            >
               <option value="">Choose…</option>
               {BLOOD_TYPES.map((t) => (
                 <option key={t} value={t}>
@@ -102,6 +151,14 @@ export default function RequestForm() {
                 </option>
               ))}
             </select>
+            {form.blood_type && (
+              <p className="mt-1 text-xs text-cream/45">
+                Patients with {form.blood_type} can receive from:{' '}
+                <span className="font-semibold text-cream/70">
+                  {compatibleDonors.join(', ')}
+                </span>
+              </p>
+            )}
           </div>
           <div>
             <label className="label" htmlFor="units_needed">
@@ -120,37 +177,63 @@ export default function RequestForm() {
           </div>
         </div>
 
+        {/* One checkbox per blood type that can donate to the patient —
+            the count varies with the chosen type (O- → 1, AB+ → 8). */}
         <div>
-          <label className="label" htmlFor="region">
-            Region <span className="text-gold">*</span>
-          </label>
-          <select id="region" className="input" value={form.region} onChange={set('region')} required>
-            <option value="">Choose…</option>
-            {REGIONS.map((r) => (
-              <option key={r} value={r}>
-                {r}
-              </option>
-            ))}
-          </select>
-          <p className="mt-1 text-xs text-cream/45">Matching prioritizes donors from the same region.</p>
-        </div>
-
-        <div>
-          <label className="label" htmlFor="hospital_id">
-            Hospital (optional)
-          </label>
-          <select id="hospital_id" className="input" value={form.hospital_id} onChange={set('hospital_id')}>
-            <option value="">Not specified</option>
-            {verifiedHospitals.map((h) => (
-              <option key={h.id} value={h.id}>
-                {h.name} — {h.city || h.region}
-              </option>
-            ))}
-          </select>
-          <p className="mt-1 text-xs text-cream/45">Only administrator-verified hospitals can be selected.</p>
+          <span className="label">Preferred donor blood types (optional)</span>
+          {form.blood_type ? (
+            <div className="mt-2 flex flex-wrap gap-2" role="group" aria-label="Preferred donor blood types">
+              {compatibleDonors.map((t) => {
+                const checked = form.preferred_donor_types.includes(t);
+                return (
+                  <label
+                    key={t}
+                    className={`flex cursor-pointer select-none items-center gap-2.5 rounded-xl border px-3.5 py-2.5 text-sm font-semibold transition ${
+                      checked
+                        ? 'border-gold/60 bg-gold/10 text-cream'
+                        : 'border-cream/15 bg-ink text-cream/75 hover:border-cream/35'
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4 accent-gold"
+                      checked={checked}
+                      onChange={() => togglePreferredType(t)}
+                    />
+                    {t}
+                  </label>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="mt-1 text-xs text-cream/45">
+              Choose the blood type needed first — the compatible donor types appear here.
+            </p>
+          )}
+          <p className="mt-1 text-xs text-cream/45">
+            {form.blood_type
+              ? `Only the ${compatibleDonors.length} blood type${
+                  compatibleDonors.length === 1 ? '' : 's'
+                } compatible with the patient appear here; checked types rank first in matching.`
+              : 'Leave all unchecked to accept any compatible donor.'}
+          </p>
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2">
+          <div>
+            <label className="label" htmlFor="region">
+              Region <span className="text-gold">*</span>
+            </label>
+            <select id="region" className="input" value={form.region} onChange={set('region')} required>
+              <option value="">Choose…</option>
+              {REGIONS.map((r) => (
+                <option key={r} value={r}>
+                  {r}
+                </option>
+              ))}
+            </select>
+            <p className="mt-1 text-xs text-cream/45">Matching prioritizes donors from the same region.</p>
+          </div>
           <div>
             <label className="label" htmlFor="urgency">
               Urgency
@@ -163,6 +246,34 @@ export default function RequestForm() {
               ))}
             </select>
           </div>
+        </div>
+
+        <div>
+          <label className="label" htmlFor="hospital_id">
+            Hospital <span className="text-gold">*</span>
+          </label>
+          <select
+            id="hospital_id"
+            className="input"
+            value={form.hospital_id}
+            onChange={set('hospital_id')}
+            required
+          >
+            <option value="">Choose…</option>
+            {verifiedHospitals.map((h) => (
+              <option key={h.id} value={h.id}>
+                {h.name} — {h.city || h.region}
+              </option>
+            ))}
+          </select>
+          <p className="mt-1 text-xs text-cream/45">
+            {selectedHospital
+              ? `${selectedHospital.name} will be notified about this request — the donation process happens there, witnessed by its assigned doctors.`
+              : 'Required — the donation process happens at the hospital. Only administrator-verified hospitals can be selected; adding one notifies the hospital.'}
+          </p>
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2">
           <div>
             <label className="label" htmlFor="needed_by">
               Needed by (optional)

@@ -122,10 +122,11 @@ export default function AdminHospitals() {
 
         {!loading && !error && hospitals?.length > 0 && (
           <div className="card overflow-x-auto">
-            <table className="w-full min-w-[860px] text-sm">
+            <table className="w-full min-w-[960px] text-sm">
               <thead>
                 <tr className="border-b border-cream/15 text-left text-xs uppercase tracking-wide text-cream/45">
                   <th className="px-4 py-3">Hospital</th>
+                  <th className="px-4 py-3">Business admin</th>
                   <th className="px-4 py-3">Region</th>
                   <th className="px-4 py-3">Status</th>
                   <th className="px-4 py-3">Notes</th>
@@ -137,8 +138,28 @@ export default function AdminHospitals() {
                 {hospitals.map((h) => (
                   <tr key={h.id} className="hover:bg-cream/5">
                     <td className="px-4 py-3">
-                      <p className="font-medium text-cream">{h.name}</p>
+                      <a
+                        href={`/hospitals/${h.id}`}
+                        className="font-medium text-cream hover:text-gold hover:underline"
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        {h.name}
+                      </a>
                       <p className="text-xs text-cream/45">{h.city || '—'}{h.contact_number ? ` · ${h.contact_number}` : ''}</p>
+                      <p className="text-xs text-cream/45">{h.doctor_count ?? 0} doctor(s) on roster</p>
+                    </td>
+                    <td className="px-4 py-3">
+                      {h.admin_name ? (
+                        <span className="flex flex-col">
+                          <span className="font-medium text-cream">{h.admin_name}</span>
+                          <span className="text-xs text-cream/45">
+                            {h.admin_is_doctor ? 'admin · also a doctor' : 'business account'}
+                          </span>
+                        </span>
+                      ) : (
+                        <span className="text-xs text-cream/40">no admin linked</span>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-cream/75">{h.region}</td>
                     <td className="px-4 py-3">

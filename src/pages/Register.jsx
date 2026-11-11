@@ -2,19 +2,36 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Alert } from '../components/ui';
-import { isValidEmail, validatePassword } from '../lib/utils';
+import { isValidEmail, validatePassword, classNames } from '../lib/utils';
 import dataService, { isMock } from '../lib/dataService';
+import { ACCOUNT_TYPES, ACCOUNT_TYPE_DESCRIPTIONS, REGIONS } from '../lib/constants';
 
 // Registration + email verification.
-// Email verification is ENABLED in this project:
+// v4: after the basics, the user picks WHAT they are:
+//   Donor/Recipient — the base account (donate + request blood)
+//   Doctor          — + license ID, specialization, contact number;
+//                     they apply to a hospital separately
+//   Business        — + the hospital record they will administer
+// Email verification:
 //   - mock mode    : the "email link" is simulated with a button.
-//   - Supabase mode: Supabase sends the REAL confirmation email; this page
-//                    then offers a resend and a path back to sign-in.
+//   - Supabase mode: Supabase sends the REAL confirmation email.
+const ACCOUNT_OPTIONS = ['user', 'doctor', 'business'];
+
 export default function Register() {
   const { register, verifyEmail, login } = useAuth();
   const navigate = useNavigate();
 
   const [form, setForm] = useState({ full_name: '', email: '', password: '', confirm: '' });
+  const [accountType, setAccountType] = useState('user');
+  const [doctor, setDoctor] = useState({ license_id: '', specialization: '', contact_number: '' });
+  const [hospital, setHospital] = useState({
+    name: '',
+    region: '',
+    city: '',
+    address: '',
+    contact_number: '',
+    description: ''
+  });
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
   const [stage, setStage] = useState('form'); // form -> check_email
@@ -22,6 +39,8 @@ export default function Register() {
   const [resent, setResent] = useState(false);
 
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
+  const setDoctorField = (k) => (e) => setDoctor((d) => ({ ...d, [k]: e.target.value }));
+  const setHospitalField = (k) => (e) => setHospital((h) => ({ ...h, [k]: e.target.value }));
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -32,9 +51,24 @@ export default function Register() {
     if (pwError) return setError(pwError);
     if (form.password !== form.confirm) return setError('Passwords do not match.');
 
+    if (accountType === 'doctor') {
+      if (!doctor.license_id.trim()) return setError('Please enter your doctor license / PRC ID number.');
+      if (!doctor.contact_number.trim()) return setError('Please enter your contact number.');
+    }
+    if (accountType === 'business') {
+      if (hospital.name.trim().length < 3)
+        return setError('Please enter your hospital\u2019s name (at least 3 characters).');
+      if (!hospital.region) return setError('Please choose the region where your hospital is located.');
+    }
+
     setBusy(true);
     try {
-      await register(form);
+      await register({
+        ...form,
+        account_type: accountType,
+        doctor: accountType === 'doctor' ? doctor : {},
+        hospital: accountType === 'business' ? hospital : {}
+      });
       setStage('check_email');
     } catch (err) {
       setError(err?.message || 'Registration failed.');
@@ -206,6 +240,193 @@ export default function Register() {
             autoComplete="new-password"
           />
         </div>
+
+        {/* v4 — account type picker */}
+        <div className="border-t border-cream/10 pt-4">
+          <span className="label">I am registering as…</span>
+          <div className="grid gap-2">
+            {ACCOUNT_OPTIONS.map((type) => (
+              <label
+                key={type}
+                className={classNames(
+                  'flex cursor-pointer items-start gap-3 rounded-xl border p-3.5 transition-colors',
+                  accountType === type
+                    ? 'border-gold/60 bg-gold/10'
+                    : 'border-cream/15 hover:border-cream/30 hover:bg-cream/5'
+                )}
+              >
+                <input
+                  type="radio"
+                  name="account_type"
+                  value={type}
+                  checked={accountType === type}
+                  onChange={() => setAccountType(type)}
+                  className="mt-0.5 h-4 w-4 accent-gold"
+                />
+                <span>
+                  <span className="block text-sm font-semibold text-cream">
+                    {ACCOUNT_TYPES[type]}
+                  </span>
+                  <span className="mt-0.5 block text-xs leading-relaxed text-cream/65">
+                    {ACCOUNT_TYPE_DESCRIPTIONS[type]}
+                  </span>
+                </span>
+              </label>
+            ))}
+          </div>
+          <p className="mt-2 text-xs text-cream/45">
+            Doctors and businesses still donate and request blood — those abilities are inherited.
+          </p>
+        </div>
+
+        {/* Doctor-specific fields */}
+        {accountType === 'doctor' && (
+          <div className="space-y-4 border-t border-cream/10 pt-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-gold">
+              Doctor details (verified by the hospital you apply to)
+            </p>
+            <div>
+              <label className="label" htmlFor="license_id">
+                Doctor license / PRC ID <span className="text-gold">*</span>
+              </label>
+              <input
+                id="license_id"
+                className="input"
+                value={doctor.license_id}
+                onChange={setDoctorField('license_id')}
+                placeholder="e.g. PRC-0123456"
+                maxLength={40}
+              />
+            </div>
+            <div>
+              <label className="label" htmlFor="specialization">
+                Specialization
+              </label>
+              <input
+                id="specialization"
+                className="input"
+                value={doctor.specialization}
+                onChange={setDoctorField('specialization')}
+                placeholder="e.g. Internal Medicine, Hematology"
+                maxLength={80}
+              />
+            </div>
+            <div>
+              <label className="label" htmlFor="doctor_contact">
+                Contact number <span className="text-gold">*</span>
+              </label>
+              <input
+                id="doctor_contact"
+                className="input"
+                value={doctor.contact_number}
+                onChange={setDoctorField('contact_number')}
+                placeholder="0917-123-4567"
+                maxLength={40}
+              />
+              <p className="mt-1 text-xs text-cream/45">
+                Shown on your hospital&apos;s doctor directory entry. After registering, apply to a
+                hospital from its page — the hospital admin verifies your application.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Business-specific fields */}
+        {accountType === 'business' && (
+          <div className="space-y-4 border-t border-cream/10 pt-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-gold">
+              Hospital details (you become its admin)
+            </p>
+            <div>
+              <label className="label" htmlFor="hospital_name">
+                Hospital name <span className="text-gold">*</span>
+              </label>
+              <input
+                id="hospital_name"
+                className="input"
+                value={hospital.name}
+                onChange={setHospitalField('name')}
+                placeholder="e.g. Quezon City General Hospital"
+                maxLength={120}
+              />
+            </div>
+            <div>
+              <label className="label" htmlFor="hospital_region">
+                Region <span className="text-gold">*</span>
+              </label>
+              <select
+                id="hospital_region"
+                className="input"
+                value={hospital.region}
+                onChange={setHospitalField('region')}
+              >
+                <option value="">Choose…</option>
+                {REGIONS.map((r) => (
+                  <option key={r} value={r}>
+                    {r}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <label className="label" htmlFor="hospital_city">
+                  City / municipality
+                </label>
+                <input
+                  id="hospital_city"
+                  className="input"
+                  value={hospital.city}
+                  onChange={setHospitalField('city')}
+                  maxLength={60}
+                />
+              </div>
+              <div>
+                <label className="label" htmlFor="hospital_contact">
+                  Contact number
+                </label>
+                <input
+                  id="hospital_contact"
+                  className="input"
+                  value={hospital.contact_number}
+                  onChange={setHospitalField('contact_number')}
+                  placeholder="(02) 1234-5678"
+                  maxLength={40}
+                />
+              </div>
+            </div>
+            <div>
+              <label className="label" htmlFor="hospital_address">
+                Address
+              </label>
+              <input
+                id="hospital_address"
+                className="input"
+                value={hospital.address}
+                onChange={setHospitalField('address')}
+                maxLength={200}
+              />
+            </div>
+            <div>
+              <label className="label" htmlFor="hospital_description">
+                Short description
+              </label>
+              <textarea
+                id="hospital_description"
+                className="input min-h-[90px]"
+                value={hospital.description}
+                onChange={setHospitalField('description')}
+                placeholder="What your hospital offers — blood bank hours, specialties, transfusion services…"
+                maxLength={1200}
+              />
+              <p className="mt-1 text-xs text-cream/45">
+                Your hospital starts as <span className="font-semibold">Pending</span> until a
+                platform administrator verifies it. You can edit the description and add a photo
+                from your hospital panel anytime.
+              </p>
+            </div>
+          </div>
+        )}
 
         {error && (
           <Alert tone="error" title="Registration failed">
