@@ -66,7 +66,7 @@ export default function ForgotPassword() {
   return (
     <div className="mx-auto max-w-md py-6">
       <h1 className="text-2xl font-bold text-cream">Password recovery</h1>
-      <p className="mt-1 text-sm text-cream/65">{subtitle}</p>
+      <p className="mt-1 text-sm text-muted">{subtitle}</p>
 
       <div className="card mt-6 p-6">
         {stage === 'email' && (
@@ -148,7 +148,7 @@ export default function ForgotPassword() {
           </div>
         )}
 
-        <p className="mt-4 text-center text-sm text-cream/65">
+        <p className="mt-4 text-center text-sm text-muted">
           <Link to="/login" className="font-medium text-gold hover:underline">
             Back to sign in
           </Link>

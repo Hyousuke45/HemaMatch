@@ -58,7 +58,7 @@ export default function AdminRecords() {
   return (
     <div className="flex flex-col gap-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="max-w-2xl text-sm text-cream/65">
+        <p className="max-w-2xl text-sm text-muted">
           Outcome records define the &quot;transaction&quot; of this system: the recorded result of an
           accepted donation request. Records are insert-only for audit integrity.
         </p>
@@ -110,7 +110,7 @@ export default function AdminRecords() {
                 ))}
               </select>
               {selectedRequest && (
-                <p className="mt-1 text-xs text-cream/45">
+                <p className="mt-1 text-xs text-muted">
                   Only ABO-compatible donors are listed for this request.
                 </p>
               )}
@@ -178,7 +178,7 @@ export default function AdminRecords() {
         <div className="card overflow-x-auto">
           <table className="w-full min-w-[860px] text-sm">
             <thead>
-              <tr className="border-b border-cream/15 text-left text-xs uppercase tracking-wide text-cream/45">
+              <tr className="border-b border-line text-left text-xs uppercase tracking-wide text-muted">
                 <th className="px-4 py-3">Outcome</th>
                 <th className="px-4 py-3">Request</th>
                 <th className="px-4 py-3">Donor</th>
@@ -189,7 +189,7 @@ export default function AdminRecords() {
             </thead>
             <tbody className="divide-y divide-cream/10">
               {records.map((rec) => (
-                <tr key={rec.id} className="hover:bg-cream/5">
+                <tr key={rec.id} className="hover:bg-pale">
                   <td className="px-4 py-3">
                     <StatusBadge status={rec.outcome} />
                   </td>
@@ -202,7 +202,7 @@ export default function AdminRecords() {
                   <td className="px-4 py-3 font-medium text-cream">{rec.donor_name || '—'}</td>
                   <td className="px-4 py-3 text-cream/75">{rec.doctor_name || '—'}</td>
                   <td className="max-w-[280px] px-4 py-3 text-cream/75">{rec.reason || '—'}</td>
-                  <td className="px-4 py-3 text-xs text-cream/45">
+                  <td className="px-4 py-3 text-xs text-muted">
                     {rec.recorded_by_name}
                     <br />
                     {formatDateTime(rec.created_at)}

@@ -94,3 +94,105 @@ Stage Summary:
 - v4.1 complete: per-type compatible-donor checkboxes (multi-select, varies by receiver type, enforced client+server) and required hospital across mock + Supabase modes, with a v4 database upgrade path and refreshed demo data.
 - Deliverables: refreshed download/hemamatch-source.zip (project source), download/supabase-schema.sql, download/supabase-seed.sql, CHANGELOG.md v4.1 section, this worklog entry.
 - Note for Phase 3: existing v4 Supabase databases must re-run schema.sql (section 3 now includes the v4.1 upgrade path); mock mode re-seeds automatically via the v5 store key.
+
+---
+Task ID: 7
+Agent: main (Z.ai)
+Task: HemaMatch v5 — make the UI better and simplistic, using https://dentabook.forgroup.space/ as the reference (client request).
+
+Work Log:
+- Measured the reference site live with agent-browser (SPA — fetch returned nothing): extracted :root tokens (#167fa6 primary / #163744 ink / #657985 muted / #e1eaed line / #eff8fa pale), DM Sans, 62px/-2.9px hero heading, white cards radius 10-12 with hairline borders (shadow only on float cards: rgba(16,66,92,.094) 0 8px 32px), 7px buttons, #d9e5e9 inputs, white header with bottom border, #fbfdfd footer, two-tone logo + tiny-caps tagline. Saved to dentabook_ref/DESIGN-SYSTEM.md.
+- index.css rewritten: kept the 6 semantic token NAMES (ink/night/cream/gold/gold-light/blood) but remapped values (ink/night -> white, cream -> #16323e ink text, gold -> #b3132b blood red, blood -> #fdeaec tint) + new muted/line/pale tokens; component classes restyled (btn radius 10 + shadow-sm, input #d9e5e9 border, card radius 12 hairline no shadow, chip/label); color-scheme light; light scrollbars; red selection/focus; h1/h2 tracking-tight; base 15px.
+- index.html: Inter -> DM Sans (opsz 400-700), theme-color #ffffff.
+- ui.jsx atoms retuned: BADGE_STYLES/ALERT_TONES to tinted-50/800-grade pairs, AVATAR_COLORS pastel 100s, BloodTypeBadge pale-red/red, StatCard/Empty/Error text via muted, ConfirmDialog light scrim (bg-cream/40 backdrop-blur).
+- scripts/restyle_sweep.py: one-shot remap over 30 JSX files — text-cream/NN opacities -> muted ramp, bg-cream/5-25 hovers -> bg-pale, border-cream/10-35 -> border-line, bg-black overlays -> light scrim, red/emerald/sky/amber-300 texts -> 600/700-grade, shadow-black -> shadow-sm.
+- Layout.jsx rewritten: two-tone wordmark (Hema ink + Match red) with droplet mark and "GIVE BLOOD. SAVE LIVES." tiny-caps tagline; white sticky header; nav links muted with red active; light bottom tab bar; white footer on #fbfdfd. (Dropped the favicon-img hack.)
+- Landing.jsx rebuilt on the reference homepage anatomy: red eyebrow, 60px tight heading "A little blood. A whole life saved." with red highlight, muted pitch, floating request card (soft shadow + pale offset backdrop), stats strip, "Where do you want to start?" quick-action link cards with Explore arrows, numbered how-it-works (red circle numerals), ABO/Rh strip on card-well, disclaimer.
+- Bug fixes surfaced by verification: chat "mine" bubble red bg + white text (was gold/night), "theirs" pale well; messages grid column overflow at 390px (pre-existing) fixed with md:grid-cols-[320px_minmax(0,1fr)] + min-w-0 on the chat pane.
+- Verification (agent-browser): token audit on landing (white bg, DM Sans, 60px/-1.5px h1, #b3132b buttons, white hairline cards); page scans (contrast, dark surfaces, overflowX) at 390x844 and 1280x900 across landing, login, register, dashboard, requests, request form (checkbox pills: white/hairline unchecked, red-tint checked + red accent), request detail, messages thread, hospitals, hospital detail, donate, profile, and all six admin pages — zero overflow (messages fixed), zero dark surfaces, zero console/page errors; screenshots pixel-checked (white corners 4/4, red accent present). Production build passes (~198 KB gzip).
+- Documentation: CHANGELOG.md v5 section, README theme mentions updated, this entry.
+
+Stage Summary:
+- v5 complete: full light redesign to the DentaBook look (white, DM Sans, hairline, single red accent) with zero functional changes; all pages browser-verified.
+- Deliverables: refreshed download/hemamatch-source.zip, download/supabase-schema.sql + supabase-seed.sql (unchanged content, current tree), screenshot set in download/, CHANGELOG.md v5.
+- Note: the v4.1 features (compatibility checkboxes, required hospital) are unchanged and re-verified on the new theme.
+
+---
+Task ID: 8
+Agent: main (Z.ai)
+Task: HemaMatch v6 — global UI/UX redesign per the client's design instructions (DentaBook inspiration, spec palette, sidebar navigation, Lucide, role dashboards, production-ready healthcare SaaS feel).
+
+Work Log:
+- Read all relevant components first (Dashboard, AdminLayout/Dashboard, DonorCard, RequestCard, BrowseTabs, AuthContext, dataService stats methods) to preserve behavior.
+- index.css @theme remapped to the spec palette: gold=#B91C35 primary crimson, gold-light hover, blood=#FCE8EC soft rose, cream=#202124, muted=#737780, line=#E9EBEE, pale=#FAFAFB off-white page bg, +burgundy #861B32; body bg-pale; focus/selection #B91C35; cards subtle shadow 0 1px 3px rgba(32,33,36,.05); input border #dcdfe3.
+- lucide-react installed (bun add).
+- NEW src/components/SidebarLayout.jsx: fixed left sidebar (256px, brand lockup with droplet tile, grouped sections General/Communicate + role sections Hospital|Witness|Administration, active item soft-rose bg + crimson text, collapse-to-72px-rail with tooltips via PanelLeftClose/Open, disclaimer footer), sticky topbar (mobile hamburger + compact brand, context title, Bell -> /messages, profile dropdown with outside-click close), footer; mobile drawer with scrim auto-closing on navigation; renders children || Outlet.
+- App.jsx restructured: public pages (landing/login/register/forgot/reset/404) stay in Layout; all authenticated pages wrapped as app(<Page/>) = ProtectedRoute > SidebarLayout > page (guards unchanged); admin nested routes unchanged under AdminRoute > SidebarLayout > AdminLayout.
+- Layout.jsx simplified to the public marketing shell (Brand, Home/Hospitals links when signed out, Sign in/Register or "Go to dashboard" when signed in); old BottomTabBar/TabIcon removed (no other consumers).
+- Dashboard.jsx rebuilt: page header with avatar + "New request" primary action; 4 live stat tiles (My requests/Pending/Accepted/Completed computed from getMyRequests); doctor/business context cards with icon chips; donor profile card; 5 quick-action cards (Lucide icons in soft-rose chips); recent requests capped at 4 + "View all"; status legend.
+- AdminDashboard.jsx rebuilt: 4 headline StatTiles with icon chips (Registered users/Available donors/Pending requests/Completed donations); quick-action buttons; 13 MiniStats (accounts/requests/records) with icon chips; activity feed with action chips on soft rose; link to full log.
+- ui.jsx: BloodTypeBadge -> solid crimson + white (prominence per spec §6); StatCard gains optional icon chip; Spinner -> LoaderCircle; EmptyState -> ArchiveX; ErrorState -> CircleAlert; Alert tones already light-tuned.
+- DonorCard: Lucide MapPin/Calendar/Check/MessageCircle/User/BadgeCheck; note on pale well; "Compatible type" chip. RequestCard: MapPin/Building2 meta icons, muted description. BrowseTabs: Droplet/HeartHandshake.
+- All remaining inline SVGs replaced with Lucide: Messages (ArrowLeft back, Building2 headers, SendHorizontal composer, RotateCw refresh), Hospitals + HospitalDetail + MyHospital (Building2 placeholders), Register (MailCheck success), PublicProfileSheet (X close), Profile (ChevronRight), SidebarLayout (Menu). Zero <svg> outside none remain.
+- Bug fixes: SidebarLayout renders children||Outlet (admin nested routes need Outlet); guard order SidebarLayout inside ProtectedRoute (auth context always present); safe profile fallback.
+- Verification (agent-browser): sidebar structure/sections per role (user 2 sections; admin +Administration; business +Hospital; doctor +Witness); collapse -> 72px rail, labels hidden, tooltips on; 768 icon rail; 390 hamburger + drawer (all nav items + section headers + scrim, auto-close on nav); all user pages (dashboard/requests/new/donors/hospitals/messages/profile/donate) + all 6 admin subpages + my-hospital + my-assignments overflow-free at their widths; blood badge bg rgb(185,28,53) white text; mine-bubble crimson/white; primary buttons #B91C35; live numbers verified (admin: 18 users/7 donors/3 pending/1 completed; Grace: 1 request); landing/login/register on public shell; fresh-load console clean (only pre-existing React Router v7 future-flag warnings).
+- Production build passes (bun run build).
+- Docs: CHANGELOG v6 section, this worklog, README table updated.
+
+Stage Summary:
+- v6 complete: spec-exact palette, sidebar+topbar application shell (desktop/tablet/mobile), Lucide icon system, role-aware dashboards with live statistics, prominent blood-type badges — all functionality, routes, guards and Supabase integration preserved.
+- Deliverables: download/hemamatch-source.zip (refreshed), download/v6-screenshots/, updated HemaMatch-README.md + CHANGELOG inside the zip.
+
+---
+Task ID: 9
+Agent: main (Z.ai)
+Task: v6.1 — restore mobile-first bottom navigation per client feedback (keep desktop as-is).
+
+Work Log:
+- Recovered the v5 BottomTabBar pattern from git (630bc70) for reference: role-aware tabs, min-h-[56px] targets, pb-safe, main pb-24 clearance.
+- SidebarLayout.jsx: added BottomTabBar (md:hidden, fixed bottom, white/95 blur, pb-safe) with Lucide icons — Home/Requests/Donate/Messages/role-slot/Profile; role slot = Admin (isAdmin) / Hospital (isBusiness) / Witness (isDoctor && !isBusiness) / Hospitals (default). grid-cols-6 (7 cols if ever needed).
+- Removed the mobile drawer + hamburger + onNavigate plumbing and the now-unused X/Menu imports; SidebarContent simplified. Mobile topbar shows the full BrandMark only.
+- Clearances: main pb-28 (md:pb-8), footer inner pb-20 (md:pb-5); Messages thread height h-[calc(100dvh-15.5rem)] on phones so the composer clears the bar.
+- Verification (agent-browser, 390x844): tab bar fixed bottom z-40 on every page; role tabs correct per demo account (grace: Hospitals slot; admin: Admin; biz.stmary: Hospital; dr.ramos: Witness); active tab crimson; footer text and Messages composer input clear the bar; all 9 user pages overflow-free; 768: tab bar hidden + 256px sidebar (rail since collapse persisted); 1280: v6 desktop unchanged (labels, bell, no overflow). Fresh screenshots taken.
+- Production build passes; zip re-packaged with updated CHANGELOG/README/worklog.
+
+Stage Summary:
+- v6.1 complete: mobile-first bottom navigation restored in the v6 design language; desktop/tablet sidebar untouched.
+
+---
+Task ID: 10
+Agent: main (Z.ai)
+Task: v6.2 — dashboard font size + notification redesign (concise/expandable/capped), origin-aware back nav, full notifications tab.
+
+Work Log:
+- Dashboard.jsx: h1 text-2xl→text-xl, StatTile value text-3xl→text-2xl + label text-sm→text-[13px] + hint text-[11px], section h2 text-lg→text-base, intro text-sm→text-[13px]. Verified computed sizes: 20px/24px/16px.
+- NEW src/components/NotificationList.jsx — shared expandable rows. Collapsed: dot + title + type·time (truncated, single line). Expanded (click anywhere on row): body + sender + "View details" Link (carries state.from {path,label}) + "Mark as read" button — only rendered when open. Panel variant slices 5 and appends "View more (N more)" → /notifications. NOTIF_TYPES map for the type filter.
+- NEW src/pages/Notifications.jsx — full tab: segmented status filter (All/Unread/Read), type dropdown, newest/oldest sort, search over title/body/actor, "N of M shown" counter, mark-all-as-read, empty state for no matches; reuses NotificationList variant="full".
+- MyHospital.jsx: Notifications component now delegates to <NotificationList variant="panel" onMarkedRead={reload}/>; header keeps unread badge + Mark all as read.
+- App.jsx: /notifications route inside the app shell + ProtectedRoute.
+- RequestDetail.jsx: back link uses state?.from — target path + label ("Back to My hospital" / "Back to notifications"), defaults to /requests otherwise.
+- SidebarLayout.jsx: business sidebar section gains Notifications (Bell icon); topbar bell navigates to /notifications for business (messages otherwise) with live unread badge (9+ cap); unread count via useAsync + listHospitalNotifications, fails soft.
+- Bug fixed during verification: the from-label was hardcoded 'notifications' making the hospital-panel flow say "Back to notifications" — now derives from pathname (/notifications → 'notifications', else 'My hospital').
+- Seeded 8 requests attached to St. Mary as grace to exceed the 5-row cap for testing (badge showed 5, panel showed 5 + "View more (1 more)").
+- Verified (390): collapse/expand, actions only when expanded, both back-nav flows, unread filter, search, panel cap, bell badge, tab bar intact, 8-page overflow sweep. Verified (1280): grace sidebar unchanged, biz sidebar + bell badge, no overflow. bun run build passes.
+- Repackaged zip with updated CHANGELOG/README/worklog; new screenshots.
+
+Stage Summary:
+- v6.2 complete: calmer dashboard typography; notifications are concise → expandable → full-featured tab with origin-aware back navigation.
+
+---
+Task ID: 11
+Agent: main (Z.ai)
+Task: v6.3 — dashboard declutter (remove donor-profile card, condense stats, rebalance quick actions).
+
+Work Log:
+- Dashboard.jsx: deleted the entire "My donor profile" card section (blood-type badge, region/availability line, donor-listing status, Edit profile + Find donors buttons). Removed the now-unused BloodTypeBadge import and myOffer/offerLoading useAsync calls.
+- QUICK_ACTIONS: added { to:'/donors', icon:Users, title:'Find donors' } → 6 actions; imported Users from lucide-react.
+- Stats: replaced the 4-tile grid with ONE .card wrapping an inner grid (grid-cols-2 lg:grid-cols-4). StatTile refactored into a cell: p-4, dividers via 'even:border-l even:border-line' + 'max-lg:[&:nth-child(-n+2)]:border-b max-lg:...:border-line' + 'first:!border-l-0', plus lg:border-l for non-first cells. classNames import added.
+- Quick actions: mobile = flex row items-center (icon span left, truncate label center, ArrowRight chevron right, one per row, gap-2.5); sm:grid-cols-2; lg = back to flex-col items-start cards with descriptions (hidden on mobile) in a 6-col grid. 
+- Bugs fixed during verification: (1) divider used odd: instead of even: (cell 2 needed the left border, mobile only showed cell1 B1 + cell2 L0 → wrong); (2) desktop kept the mobile-only bottom divider under cells 1-2 (stray line) → wrapped in max-lg:.
+- Verified (390): donor card gone for grace AND biz; stats single card, mobile borders [1:L0B1, 2:L1B1, 3:L0B0, 4:L1L0... i.e. 4:L1B0], no overflow; 6 QA rows, icon strictly left of label with vertical overlap, uniform 66px; (1280): stats one row [1:L0B0, 2:L1B0, 3:L1B0, 4:L1B0], QA cards stacked icon-over-label with descriptions, no overflow.
+- Updated CHANGELOG (v6.3 entry). bun run build passes. Repackaged zip, 3 new screenshots (v63-dashboard-mobile/desktop/biz-mobile).
+
+Stage Summary:
+- v6.3 complete: dashboard decluttered — no redundant donor-profile card, one condensed stats card, balanced side-by-side quick-action pills on mobile.

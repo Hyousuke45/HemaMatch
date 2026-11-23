@@ -4,7 +4,56 @@ import useAsync from '../hooks/useAsync';
 import dataService from '../lib/dataService';
 import { Avatar, BloodTypeBadge, EmptyState, InlineLoader, StatusBadge } from '../components/ui';
 import RequestCard from '../components/RequestCard';
-import { formatDate } from '../lib/utils';
+import { formatDate, classNames } from '../lib/utils';
+import {
+  Droplet,
+  HeartHandshake,
+  ClipboardList,
+  Building2,
+  MessageCircle,
+  ArrowRight,
+  Stethoscope,
+  Users
+} from 'lucide-react';
+
+const QUICK_ACTIONS = [
+  {
+    to: '/requests/new',
+    icon: Droplet,
+    title: 'Request blood',
+    body: 'Create a donation request for a patient in need.'
+  },
+  {
+    to: '/donate',
+    icon: HeartHandshake,
+    title: 'Donate blood',
+    body: 'List yourself as a volunteer donor — open or paused anytime.'
+  },
+  {
+    to: '/requests',
+    icon: ClipboardList,
+    title: 'Browse requests',
+    body: 'See who needs blood near you and offer help.'
+  },
+  {
+    to: '/donors',
+    icon: Users,
+    title: 'Find donors',
+    body: 'Browse the donor directory by blood type and region.'
+  },
+  {
+    to: '/hospitals',
+    icon: Building2,
+    title: 'Find a hospital',
+    body: 'Search hospitals, view doctors and message them directly.'
+  },
+  {
+    to: '/messages',
+    icon: MessageCircle,
+    title: 'Messages',
+    body: 'Chat privately with requesters and donors.'
+  }
+];
 
 export default function Dashboard() {
   const { user, isDoctor, isBusiness } = useAuth();
@@ -17,168 +66,125 @@ export default function Dashboard() {
 
   const p = user.profile;
 
+  // Dashboard stats — computed from the user's live data, never hardcoded.
+  const pendingCount = myRequests?.filter((r) => r.status === 'pending').length ?? 0;
+  const activeCount = myRequests?.filter((r) => r.status === 'accepted').length ?? 0;
+  const completedCount = myRequests?.filter((r) => r.status === 'completed').length ?? 0;
+
   return (
     <div className="flex flex-col gap-8">
-      {/* Welcome */}
-      <div className="flex items-center gap-4">
-        <Avatar name={p.full_name} src={p.avatar_url} size="lg" />
-        <div>
-          <h1 className="text-2xl font-bold text-cream">Welcome, {p.full_name.split(' ')[0]}!</h1>
-          <p className="text-sm text-cream/65">
-            Member since {formatDate(p.created_at)}
-            {isBusiness ? ' · Business (hospital admin) account' : isDoctor ? ' · Doctor account' : ''}
-          </p>
+      {/* Page header */}
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <Avatar name={p.full_name} src={p.avatar_url} size="lg" />
+          <div>
+            <h1 className="text-xl font-bold tracking-tight text-cream">
+              Welcome back, {p.full_name.split(' ')[0]}
+            </h1>
+            <p className="text-[13px] text-muted">
+              Member since {formatDate(p.created_at)}
+              {isBusiness ? ' · Business (hospital admin) account' : isDoctor ? ' · Doctor account' : ''}
+            </p>
+          </div>
         </div>
+        <Link to="/requests/new" className="btn-primary">
+          <Droplet className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
+          New request
+        </Link>
       </div>
+
+      {/* Stats — v6.3: the four numbers condensed into ONE card with
+          internal dividers (2x2 on mobile, one row on desktop) */}
+      <section className="card p-1.5" aria-label="My request statistics">
+        <div className="grid grid-cols-2 lg:grid-cols-4">
+          {[
+            { label: 'My requests', value: myRequests?.length ?? '—', hint: 'All time' },
+            { label: 'Pending', value: myRequests ? pendingCount : '—', tone: 'amber', hint: 'Awaiting action' },
+            { label: 'Accepted', value: myRequests ? activeCount : '—', tone: 'sky', hint: 'In progress' },
+            { label: 'Completed', value: myRequests ? completedCount : '—', tone: 'green', hint: 'Closed by admin' }
+          ].map((s, i) => (
+            <StatTile key={s.label} {...s} first={i === 0} />
+          ))}
+        </div>
+      </section>
 
       {/* v4: doctor / business context cards */}
       {isDoctor && (
-        <section className="card p-5">
-          <div className="flex flex-wrap items-center justify-between gap-3">
+        <section className="card flex flex-wrap items-center justify-between gap-3 p-5">
+          <div className="flex items-center gap-3">
+            <span className="flex h-10 w-10 items-center justify-center rounded-[10px] bg-blood text-gold">
+              <Stethoscope className="h-5 w-5" strokeWidth={1.9} aria-hidden="true" />
+            </span>
             <div>
               <p className="font-semibold text-cream">Witnessed transactions</p>
-              <p className="mt-0.5 text-sm text-cream/65">
+              <p className="mt-0.5 text-sm text-muted">
                 {myAssignments
                   ? `You are the assigned doctor (witness) on ${myAssignments.length} transaction${myAssignments.length === 1 ? '' : 's'}.`
                   : 'Loading your assignments…'}
               </p>
             </div>
-            <Link to="/my-assignments" className="btn-secondary">
-              My assignments
-            </Link>
           </div>
+          <Link to="/my-assignments" className="btn-secondary">
+            My assignments
+          </Link>
         </section>
       )}
       {isBusiness && (
-        <section className="card p-5">
-          <div className="flex flex-wrap items-center justify-between gap-3">
+        <section className="card flex flex-wrap items-center justify-between gap-3 p-5">
+          <div className="flex items-center gap-3">
+            <span className="flex h-10 w-10 items-center justify-center rounded-[10px] bg-blood text-gold">
+              <Building2 className="h-5 w-5" strokeWidth={1.9} aria-hidden="true" />
+            </span>
             <div>
               <p className="font-semibold text-cream">Your hospital</p>
-              <p className="mt-0.5 text-sm text-cream/65">
+              <p className="mt-0.5 text-sm text-muted">
                 Track records, review doctor applications and manage your hospital&apos;s public profile.
               </p>
             </div>
-            <Link to="/my-hospital" className="btn-primary">
-              Open hospital panel
-            </Link>
           </div>
+          <Link to="/my-hospital" className="btn-primary">
+            Open hospital panel
+          </Link>
         </section>
       )}
 
-      {/* Donor profile card */}
-      <section className="card p-6">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            {p.blood_type ? (
-              <BloodTypeBadge type={p.blood_type} size="lg" />
-            ) : (
-              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-ink text-xs font-bold text-cream/45">
-                N/A
-              </div>
-            )}
-            <div>
-              <p className="font-semibold text-cream">My donor profile</p>
-              {p.blood_type ? (
-                <p className="text-sm text-cream/65">
-                  {p.region || 'Region not set'}
-                  {p.city ? ` · ${p.city}` : ''} ·{' '}
-                  <span className={p.is_available ? 'font-medium text-emerald-400' : 'font-medium text-cream/65'}>
-                    {p.is_available ? 'Available to donate' : 'Not available'}
-                  </span>
-                </p>
-              ) : (
-                <p className="text-sm text-cream/65">
-                  Add your blood type and location so you appear in matching results.
-                </p>
-              )}
-              {/* v3: donor listing status */}
-              <p className="mt-1 text-xs text-cream/45">
-                {offerLoading
-                  ? 'Checking your donor listing…'
-                  : myOffer
-                    ? myOffer.status === 'open'
-                      ? 'Your donor listing is open — requesters can find you.'
-                      : 'Your donor listing is paused — you are hidden from donors and matching.'
-                    : 'No donor listing yet — offer to donate from the Donate page.'}{' '}
-                <Link to="/donate" className="font-medium text-gold hover:underline">
-                  Manage listing
-                </Link>
-              </p>
-            </div>
-          </div>
-          <div className="flex flex-col gap-2 sm:flex-row">
-            <Link to="/profile" className="btn-secondary">
-              {p.blood_type ? 'Edit profile' : 'Complete profile'}
-            </Link>
-            <Link to="/donors" className="btn-secondary">
-              Find donors
-            </Link>
-          </div>
-        </div>
-      </section>
-
-      {/* Quick actions — big tappable cards, icon + one-line purpose */}
-      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-        <Link to="/requests/new" className="card p-5 transition-colors hover:border-gold/40">
-          <span className="flex items-center gap-2 font-semibold text-cream">
-            <svg className="h-5 w-5 text-gold" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-              <path d="M12 2C12 2 5 10.3 5 15a7 7 0 0 0 14 0C19 10.3 12 2 12 2Z" />
-            </svg>
-            Request blood
-          </span>
-          <p className="mt-1 text-sm text-cream/65">Create a donation request for a patient in need.</p>
-        </Link>
-        {/* v3 — the donate side is a first-class action, not just requesting */}
-        <Link to="/donate" className="card p-5 transition-colors hover:border-gold/40">
-          <span className="flex items-center gap-2 font-semibold text-cream">
-            <svg className="h-5 w-5 text-gold" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M12 21s-7-4.5-7-10a4 4 0 017-2.6A4 4 0 0119 11c0 5.5-7 10-7 10zM12 8v6m-3-3h6"
+      {/* Quick actions — v6.3: icon + label SIDE BY SIDE on mobile
+          (horizontal pill, one per row); desktop keeps the roomy
+          icon-over-text cards in a 6-column grid. */}
+      <section aria-label="Quick actions">
+        <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-6 lg:gap-4">
+          {QUICK_ACTIONS.map((a) => (
+            <Link
+              key={a.to}
+              to={a.to}
+              className="card group flex items-center gap-3 p-3.5 transition-colors hover:border-gold/40 lg:flex-col lg:items-start lg:p-5 lg:text-left"
+            >
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-blood text-gold">
+                <a.icon className="h-[18px] w-[18px]" strokeWidth={1.9} aria-hidden="true" />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate font-semibold text-cream">{a.title}</span>
+                {/* one-line description only on desktop */}
+                <span className="mt-0.5 hidden text-sm leading-snug text-muted lg:block">{a.body}</span>
+              </span>
+              {/* subtle arrow on mobile hints it's tappable */}
+              <ArrowRight
+                className="h-4 w-4 shrink-0 text-muted transition-transform group-hover:translate-x-0.5 lg:hidden"
+                strokeWidth={2}
+                aria-hidden="true"
               />
-            </svg>
-            Donate blood
-          </span>
-          <p className="mt-1 text-sm text-cream/65">
-            List yourself as a volunteer donor — open or paused anytime.
-          </p>
-        </Link>
-        <Link to="/requests" className="card p-5 transition-colors hover:border-gold/40">
-          <span className="flex items-center gap-2 font-semibold text-cream">
-            <svg className="h-5 w-5 text-gold" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M8 5.25h10.5a2 2 0 012 2v11.5a2 2 0 01-2 2H8a2 2 0 01-2-2V7.25a2 2 0 012-2zM3.5 9.5v6m11-7.25v9" />
-            </svg>
-            Browse requests
-          </span>
-          <p className="mt-1 text-sm text-cream/65">See who needs blood near you and offer help.</p>
-        </Link>
-        <Link to="/hospitals" className="card p-5 transition-colors hover:border-gold/40">
-          <span className="flex items-center gap-2 font-semibold text-cream">
-            <svg className="h-5 w-5 text-gold" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 21V6.2A2.2 2.2 0 016.7 4h10.6a2.2 2.2 0 012.2 2.2V21M4.5 21h15M9.4 4V2.6M14.6 4V2.6M12 8.2v6m-3-3h6" />
-            </svg>
-            Find a hospital
-          </span>
-          <p className="mt-1 text-sm text-cream/65">
-            Search hospitals, view doctors and message the hospital directly.
-          </p>
-        </Link>
-        <Link to="/messages" className="card p-5 transition-colors hover:border-gold/40">
-          <span className="flex items-center gap-2 font-semibold text-cream">
-            <svg className="h-5 w-5 text-gold" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a8.4 8.4 0 01-8.4 8.4c-1.3 0-2.6-.3-3.7-.9L3 21l1.6-4.6A8.4 8.4 0 1121 12z" />
-            </svg>
-            Messages
-          </span>
-          <p className="mt-1 text-sm text-cream/65">Chat privately with requesters and donors.</p>
-        </Link>
+            </Link>
+          ))}
+        </div>
       </section>
 
       {/* My requests */}
       <section>
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-bold text-cream">My donation requests</h2>
+          <div>
+            <h2 className="text-base font-bold tracking-tight text-cream">My donation requests</h2>
+            <p className="text-[13px] text-muted">Everything you have requested, newest first.</p>
+          </div>
           <Link to="/requests/new" className="text-sm font-medium text-gold hover:underline">
             + New request
           </Link>
@@ -201,16 +207,26 @@ export default function Dashboard() {
 
         {!loading && !error && myRequests?.length > 0 && (
           <div className="grid gap-4 md:grid-cols-2">
-            {myRequests.map((r) => (
+            {myRequests.slice(0, 4).map((r) => (
               <RequestCard key={r.id} request={r} />
             ))}
           </div>
+        )}
+
+        {!loading && !error && myRequests?.length > 4 && (
+          <Link
+            to="/requests"
+            className="mt-4 inline-flex items-center gap-1 text-sm font-medium text-gold hover:underline"
+          >
+            View all {myRequests.length} requests
+            <ArrowRight className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
+          </Link>
         )}
       </section>
 
       {/* Status legend */}
       <section className="card p-5">
-        <p className="text-sm font-semibold text-cream">Request statuses</p>
+        <p className="text-[13px] font-semibold text-cream">Request statuses</p>
         <div className="mt-3 flex flex-wrap gap-2">
           <StatusBadge status="pending" label="Pending — submitted, awaiting action" />
           <StatusBadge status="accepted" label="Accepted — a participant agreed to proceed" />
@@ -218,6 +234,39 @@ export default function Dashboard() {
           <StatusBadge status="cancelled" label="Cancelled" />
         </div>
       </section>
+    </div>
+  );
+}
+
+// Dashboard stat cell — v6.3: one cell inside the single stats card.
+// Dividers via border logic (right edge except last column per row,
+// bottom edge on the mobile 2x2 top row).
+function StatTile({ label, value, hint, tone = 'default', first = false }) {
+  const tones = {
+    default: 'text-cream',
+    amber: 'text-amber-700',
+    green: 'text-emerald-700',
+    sky: 'text-sky-700',
+    red: 'text-gold-light'
+  };
+  return (
+    <div
+      className={classNames(
+        'p-4',
+        // left hairline between columns
+        !first && 'lg:border-l lg:border-line',
+        // mobile 2x2: vertical divider between the two columns (cells
+        // 2 and 4 are the even children), horizontal divider under the
+        // first row (mobile only — desktop is a single row)
+        'even:border-l even:border-line',
+        'max-lg:[&:nth-child(-n+2)]:border-b max-lg:[&:nth-child(-n+2)]:border-line',
+        // first cell: no left divider, the card edge owns it
+        'first:!border-l-0'
+      )}
+    >
+      <p className="text-[13px] font-medium text-muted">{label}</p>
+      <p className={`mt-1 text-2xl font-bold tracking-tight ${tones[tone] || tones.default}`}>{value}</p>
+      {hint && <p className="mt-1 text-[11px] text-muted">{hint}</p>}
     </div>
   );
 }

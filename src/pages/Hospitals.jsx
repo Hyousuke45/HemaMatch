@@ -5,6 +5,7 @@ import dataService from '../lib/dataService';
 import { useAuth } from '../context/AuthContext';
 import { EmptyState, InlineLoader, ErrorState, StatusBadge } from '../components/ui';
 import { REGIONS } from '../lib/constants';
+import { Building2 } from 'lucide-react';
 
 // Hospital directory (v4): every user can search for a hospital, view
 // its description, location, admin, doctors and doctor information on
@@ -35,7 +36,7 @@ export default function Hospitals() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-cream">Hospitals</h1>
-          <p className="mt-1 text-sm text-cream/65">
+          <p className="mt-1 text-sm text-muted">
             Search for a hospital — view its description, location, admin and doctors.
           </p>
         </div>
@@ -110,10 +111,8 @@ export default function Hospitals() {
                     }}
                   />
                 ) : (
-                  <div className="flex h-full w-full items-center justify-center text-cream/25">
-                    <svg className="h-10 w-10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 21V6.2A2.2 2.2 0 016.7 4h10.6a2.2 2.2 0 012.2 2.2V21M4.5 21h15M9.4 4V2.6M14.6 4V2.6M12 8.2v6m-3-3h6" />
-                    </svg>
+                  <div className="flex h-full w-full items-center justify-center text-slate-300">
+                    <Building2 className="h-10 w-10" strokeWidth={1.4} aria-hidden="true" />
                   </div>
                 )}
                 {/* gradient fade: photo -> card surface */}
@@ -132,9 +131,9 @@ export default function Hospitals() {
                 {h.description ? (
                   <p className="line-clamp-2 text-sm leading-relaxed text-cream/70">{h.description}</p>
                 ) : (
-                  <p className="text-sm italic text-cream/45">No description provided yet.</p>
+                  <p className="text-sm italic text-muted">No description provided yet.</p>
                 )}
-                <div className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 border-t border-cream/10 pt-3 text-xs text-cream/60">
+                <div className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 border-t border-line pt-3 text-xs text-muted">
                   <span className="font-medium text-cream/80">
                     {h.city ? `${h.city} · ` : ''}
                     {h.region}
@@ -151,7 +150,7 @@ export default function Hospitals() {
         </div>
       )}
 
-      <p className="text-xs leading-relaxed text-cream/45">
+      <p className="text-xs leading-relaxed text-muted">
         Verified hospitals can be attached to blood requests — the hospital is notified whenever a
         requester adds it, and its doctors witness every donation transaction.
       </p>

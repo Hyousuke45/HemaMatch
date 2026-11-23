@@ -1,8 +1,10 @@
 import { NavLink, Outlet } from 'react-router-dom';
 import { classNames } from '../lib/utils';
 
-// Shared admin shell with the sub-navigation. Mounted inside AdminRoute,
-// so only administrators ever render this component.
+// Admin sub-navigation. The primary navigation (sidebar) already shows
+// the Administration section; these tabs switch between the admin
+// sub-pages. Mounted inside AdminRoute + SidebarLayout, so only
+// administrators ever render this component.
 // Mobile: tabs scroll horizontally instead of wrapping (no confusion).
 const TABS = [
   { to: '/admin', label: 'Overview', end: true },
@@ -17,14 +19,14 @@ export default function AdminLayout() {
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h1 className="text-2xl font-bold text-cream">Administration</h1>
-        <p className="mt-1 text-sm text-cream/65">
+        <h1 className="text-2xl font-bold tracking-tight text-cream">Administration</h1>
+        <p className="mt-1 text-sm text-muted">
           Restricted area — actions here are recorded in the activity log.
         </p>
       </div>
 
       <nav className="-mx-4 overflow-x-auto px-4 md:mx-0 md:px-0" aria-label="Admin sections">
-        <div className="flex min-w-max gap-1 border-b border-cream/15 md:min-w-0 md:flex-wrap">
+        <div className="flex min-w-max gap-1 border-b border-line md:min-w-0 md:flex-wrap">
           {TABS.map((t) => (
             <NavLink
               key={t.to}
@@ -35,7 +37,7 @@ export default function AdminLayout() {
                   '-mb-px whitespace-nowrap border-b-2 px-3 py-3 text-sm font-medium transition-colors',
                   isActive
                     ? 'border-gold text-gold'
-                    : 'border-transparent text-cream/55 hover:border-cream/30 hover:text-cream'
+                    : 'border-transparent text-muted hover:border-line hover:text-cream'
                 )
               }
             >

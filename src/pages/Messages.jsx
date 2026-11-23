@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import { Avatar, BloodTypeBadge, EmptyState, InlineLoader, StatusBadge } from '../components/ui';
 import { formatDateTime } from '../lib/utils';
 import { REQUEST_STATUS } from '../lib/constants';
+import { ArrowLeft, Building2, SendHorizontal, RotateCw } from 'lucide-react';
 
 // Private 1:1 messaging.
 // Privacy: only conversation participants can read/send — enforced by the
@@ -79,35 +80,31 @@ function ChatWindow({ conversation }) {
   };
 
   return (
-    <div className="card flex h-[calc(100dvh-14rem)] min-h-[420px] flex-col md:h-[calc(100vh-12rem)]">
+    <div className="card flex h-[calc(100dvh-15.5rem)] min-h-[420px] flex-col md:h-[calc(100vh-12rem)]">
       {/* Chat header — v4: hospital conversations show the HOSPITAL NAME
           (messages go to the admin); doctor chats show the doctor's
           hospital beside their name so threads are never confusing. */}
-      <div className="flex items-center gap-2 border-b border-cream/10 p-3 md:p-4">
+      <div className="flex items-center gap-2 border-b border-line p-3 md:p-4">
         <Link
           to="/messages"
-          className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-cream/70 transition-colors hover:bg-cream/10 hover:text-cream md:hidden"
+          className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-cream/70 transition-colors hover:bg-pale hover:text-cream md:hidden"
           aria-label="Back to conversations"
         >
-          <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12l7.5-7.5M21 12H3.5" />
-          </svg>
+          <ArrowLeft className="h-5 w-5" strokeWidth={2} aria-hidden="true" />
         </Link>
 
         {conversation.hospital_id ? (
           // Hospital conversation: a hospital badge instead of an avatar,
           // with the hospital name as the title.
           <>
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-cream/15 bg-blood text-cream" aria-hidden="true">
-              <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 21V6.2A2.2 2.2 0 016.7 4h10.6a2.2 2.2 0 012.2 2.2V21M4.5 21h15M9.4 4V2.6M14.6 4V2.6M12 8.2v6m-3-3h6" />
-              </svg>
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-line bg-blood text-cream" aria-hidden="true">
+              <Building2 className="h-5 w-5" strokeWidth={1.7} aria-hidden="true" />
             </span>
             <div className="min-w-0">
               <p className="truncate font-semibold text-cream">
                 {conversation.hospital_name || 'Hospital'}
               </p>
-              <p className="text-xs text-cream/55">
+              <p className="text-xs text-muted">
                 Hospital · messages go to the administrator
               </p>
             </div>
@@ -128,12 +125,12 @@ function ChatWindow({ conversation }) {
                 {conversation.other_name}
                 {/* A doctor's hospital appears beside their name (client rule) */}
                 {conversation.other_is_doctor && conversation.other_hospital_name && (
-                  <span className="ml-2 rounded-full border border-sky-400/30 bg-sky-400/10 px-2 py-0.5 align-middle text-xs font-semibold text-sky-300">
+                  <span className="ml-2 rounded-full border border-sky-400/30 bg-sky-400/10 px-2 py-0.5 align-middle text-xs font-semibold text-sky-700">
                     {conversation.other_hospital_name}
                   </span>
                 )}
               </p>
-              <p className="truncate text-xs text-cream/55">
+              <p className="truncate text-xs text-muted">
                 {conversation.other_is_doctor
                   ? `Doctor${conversation.other_specialization ? ` · ${conversation.other_specialization}` : ''}`
                   : conversation.request_blood_type
@@ -157,10 +154,10 @@ function ChatWindow({ conversation }) {
 
       {/* Messages */}
       <div className="flex-1 space-y-3 overflow-y-auto p-4">
-        {error && <p className="text-center text-sm font-medium text-red-400">{error}</p>}
+        {error && <p className="text-center text-sm font-medium text-red-600">{error}</p>}
         {!messages && !error && <InlineLoader label="Loading conversation…" />}
         {messages?.length === 0 && (
-          <p className="py-10 text-center text-sm text-cream/45">
+          <p className="py-10 text-center text-sm text-muted">
             No messages yet — say hello and share only what is needed for coordination.
           </p>
         )}
@@ -171,12 +168,12 @@ function ChatWindow({ conversation }) {
               <div
                 className={`max-w-[80%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed md:max-w-[75%] ${
                   mine
-                    ? 'rounded-br-sm bg-gold text-night'
-                    : 'rounded-bl-sm border border-cream/15 bg-ink text-cream'
+                    ? 'rounded-br-sm bg-gold text-white'
+                    : 'rounded-bl-sm border border-line bg-pale text-cream'
                 }`}
               >
                 <p>{m.content}</p>
-                <p className={`mt-1 text-[10px] ${mine ? 'text-night/60' : 'text-cream/40'}`}>
+                <p className={`mt-1 text-[10px] ${mine ? 'text-white/70' : 'text-muted'}`}>
                   {formatDateTime(m.created_at)}
                 </p>
               </div>
@@ -187,7 +184,7 @@ function ChatWindow({ conversation }) {
       </div>
 
       {/* Composer */}
-      <form onSubmit={handleSend} className="flex gap-2 border-t border-cream/10 p-3 pb-safe">
+      <form onSubmit={handleSend} className="flex gap-2 border-t border-line p-3 pb-safe">
         <input
           className="input"
           value={text}
@@ -202,13 +199,7 @@ function ChatWindow({ conversation }) {
           disabled={sending || !text.trim()}
           aria-label="Send message"
         >
-          <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M6 12L3.3 3.7a.5.5 0 01.65-.6l16.8 8.4a.5.5 0 010 .9L3.95 20.9a.5.5 0 01-.65-.6L6 12zm0 0h7.5"
-            />
-          </svg>
+          <SendHorizontal className="h-5 w-5" strokeWidth={2} aria-hidden="true" />
           <span className="hidden sm:inline">Send</span>
         </button>
       </form>
@@ -240,13 +231,7 @@ export default function Messages() {
           onClick={reload}
           aria-label="Refresh conversations"
         >
-          <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M20 11.5A8.5 8.5 0 1 0 18.3 17M20 4v4.5h-4.5"
-            />
-          </svg>
+          <RotateCw className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
           Refresh
         </button>
       </div>
@@ -257,26 +242,24 @@ export default function Messages() {
           message="Conversations start from a request page (message the requester or a matched donor), or from a hospital page — messaging a hospital goes straight to its administrator."
         />
       ) : (
-        <div className="grid gap-4 md:grid-cols-[320px_1fr]">
+        <div className="grid gap-4 md:grid-cols-[320px_minmax(0,1fr)]">
           {/* Conversation list (hidden on phones while a thread is open) */}
           <div className={`card divide-y divide-cream/10 overflow-hidden ${conversationId ? 'hidden md:block' : ''}`}>
-            <p className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-cream/45">
+            <p className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-muted">
               Conversations
             </p>
             {conversations.map((c) => (
               <Link
                 key={c.id}
                 to={`/messages/${c.id}`}
-                className={`block px-4 py-3.5 transition-colors hover:bg-cream/5 ${
+                className={`block px-4 py-3.5 transition-colors hover:bg-pale ${
                   c.id === conversationId ? 'bg-gold/15' : ''
                 }`}
               >
                 <div className="flex items-center gap-3">
                   {c.hospital_id ? (
-                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-cream/15 bg-blood text-cream" aria-hidden="true">
-                      <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 21V6.2A2.2 2.2 0 016.7 4h10.6a2.2 2.2 0 012.2 2.2V21M4.5 21h15M9.4 4V2.6M14.6 4V2.6M12 8.2v6m-3-3h6" />
-                      </svg>
+                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-line bg-blood text-cream" aria-hidden="true">
+                      <Building2 className="h-4 w-4" strokeWidth={1.7} aria-hidden="true" />
                     </span>
                   ) : (
                     <Avatar name={c.other_name} src={c.other_avatar_url} size="sm" />
@@ -290,7 +273,7 @@ export default function Messages() {
                     </div>
                     {/* Doctor threads carry their hospital; hospital threads
                         are labelled so the list stays organized. */}
-                    <p className="mt-0.5 truncate text-xs text-cream/60">
+                    <p className="mt-0.5 truncate text-xs text-muted">
                       {c.hospital_id
                         ? 'Hospital · goes to the admin'
                         : c.other_is_doctor && c.other_hospital_name
@@ -304,13 +287,13 @@ export default function Messages() {
           </div>
 
           {/* Chat pane */}
-          <div className={conversationId ? '' : 'hidden md:block'}>
+          <div className={`min-w-0 ${conversationId ? '' : 'hidden md:block'}`}>
             {active ? (
               <ChatWindow conversation={active} />
             ) : (
               <div className="card flex h-[calc(100dvh-14rem)] min-h-[420px] flex-col items-center justify-center gap-2 p-6 text-center md:h-[calc(100vh-12rem)]">
                 <p className="font-semibold text-cream">Select a conversation</p>
-                <p className="max-w-xs text-sm text-cream/60">
+                <p className="max-w-xs text-sm text-muted">
                   Choose someone on the left to view your private chat history.
                 </p>
               </div>

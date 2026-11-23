@@ -44,7 +44,7 @@ export default function AdminLogs() {
         <div className="card overflow-x-auto">
           <table className="w-full min-w-[760px] text-sm">
             <thead>
-              <tr className="border-b border-cream/15 text-left text-xs uppercase tracking-wide text-cream/45">
+              <tr className="border-b border-line text-left text-xs uppercase tracking-wide text-muted">
                 <th className="px-4 py-3">When</th>
                 <th className="px-4 py-3">Actor</th>
                 <th className="px-4 py-3">Action</th>
@@ -54,8 +54,8 @@ export default function AdminLogs() {
             </thead>
             <tbody className="divide-y divide-cream/10">
               {filtered.map((l) => (
-                <tr key={l.id} className="hover:bg-cream/5">
-                  <td className="whitespace-nowrap px-4 py-3 text-xs text-cream/65">
+                <tr key={l.id} className="hover:bg-pale">
+                  <td className="whitespace-nowrap px-4 py-3 text-xs text-muted">
                     {formatDateTime(l.created_at)}
                   </td>
                   <td className="px-4 py-3 font-medium text-cream">{l.actor_name}</td>
@@ -64,16 +64,16 @@ export default function AdminLogs() {
                       {l.action}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-xs text-cream/65">
+                  <td className="px-4 py-3 text-xs text-muted">
                     {l.entity}
-                    {l.entity_id && <span className="text-cream/45"> · {l.entity_id}</span>}
+                    {l.entity_id && <span className="text-muted"> · {l.entity_id}</span>}
                   </td>
                   <td className="max-w-[320px] px-4 py-3 text-cream/75">{l.details || '—'}</td>
                 </tr>
               ))}
             </tbody>
           </table>
-          <p className="border-t border-cream/10 px-4 py-3 text-xs text-cream/45">
+          <p className="border-t border-line px-4 py-3 text-xs text-muted">
             Showing the {filtered.length} most recent matching entries (the log keeps the latest 200).
           </p>
         </div>

@@ -44,7 +44,7 @@ export default function Login() {
   return (
     <div className="mx-auto max-w-md py-6">
       <h1 className="text-2xl font-bold text-cream">Welcome back</h1>
-      <p className="mt-1 text-sm text-cream/65">Sign in to your HemaMatch account.</p>
+      <p className="mt-1 text-sm text-muted">Sign in to your HemaMatch account.</p>
 
       <form onSubmit={handleSubmit} className="card mt-6 space-y-4 p-6">
         <div>
@@ -100,7 +100,7 @@ export default function Login() {
 
       {/* Demo helper — works in mock mode and in Supabase mode after seed.sql */}
       <div className="card mt-4 p-4">
-        <p className="text-xs font-semibold uppercase tracking-wide text-cream/45">
+        <p className="text-xs font-semibold uppercase tracking-wide text-muted">
           Demo accounts {isMock ? '(mock mode — click to quick-fill)' : '(seeded by supabase/seed.sql)'}
         </p>
         <div className="mt-2 flex flex-wrap gap-2">

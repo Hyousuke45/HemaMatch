@@ -42,7 +42,7 @@ export default function MyAssignments() {
     <div className="flex flex-col gap-6">
       <div>
         <h1 className="text-2xl font-bold text-cream">My assignments</h1>
-        <p className="mt-1 text-sm text-cream/65">
+        <p className="mt-1 text-sm text-muted">
           Transactions where you are the assigned doctor — the witness and source of truth for each
           donation. Coordinate with the donor and the requester in chat, and record the outcome
           from the request page.
@@ -66,7 +66,7 @@ export default function MyAssignments() {
                       {a.request?.units_needed ?? '—'}{' '}
                       {(a.request?.units_needed ?? 1) === 1 ? 'unit' : 'units'} · {URGENCY[a.request?.urgency] || a.request?.urgency || ''}
                     </p>
-                    <p className="text-xs text-cream/65">
+                    <p className="text-xs text-muted">
                       {a.request?.region || a.region || '—'}
                       {a.hospital_name ? ` · ${a.hospital_name}` : ''}
                     </p>
@@ -77,26 +77,26 @@ export default function MyAssignments() {
                 />
               </div>
 
-              <div className="mt-4 flex items-center gap-3 rounded-xl border border-cream/10 bg-ink p-3">
+              <div className="mt-4 flex items-center gap-3 rounded-xl border border-line bg-ink p-3">
                 <Avatar name={a.donor_name} src={a.donor_avatar_url} size="md" />
                 <div className="min-w-0">
                   <p className="truncate text-sm font-semibold text-cream">{a.donor_name}</p>
-                  <p className="text-xs text-cream/60">
+                  <p className="text-xs text-muted">
                     Donor{a.donor_blood_type ? ` · ${a.donor_blood_type}` : ''}
                   </p>
                 </div>
-                <span className="ml-auto text-[11px] text-cream/45">
+                <span className="ml-auto text-[11px] text-muted">
                   accepted {formatDate(a.created_at)}
                 </span>
               </div>
 
-              <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-cream/10 pt-3">
+              <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-line pt-3">
                 {a.request_id && (
                   <Link to={`/requests/${a.request_id}`} className="btn-primary !min-h-9 !px-3 !py-1.5 !text-xs">
                     Open request
                   </Link>
                 )}
-                <span className="ml-auto text-[11px] text-cream/45">
+                <span className="ml-auto text-[11px] text-muted">
                   updated {formatDateTime(a.updated_at)}
                 </span>
               </div>
@@ -105,7 +105,7 @@ export default function MyAssignments() {
         </div>
       )}
 
-      <p className="text-xs leading-relaxed text-cream/45">
+      <p className="text-xs leading-relaxed text-muted">
         Remember: as the witness you confirm only what you observed — the actual medical eligibility
         of the donor is always established by the hospital&apos;s standard screening process.
       </p>

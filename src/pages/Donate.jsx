@@ -71,7 +71,7 @@ export default function Donate() {
     <div className="mx-auto flex max-w-2xl flex-col gap-6">
       <div>
         <h1 className="text-2xl font-bold text-cream">Donate blood</h1>
-        <p className="mt-1 text-sm leading-relaxed text-cream/65">
+        <p className="mt-1 text-sm leading-relaxed text-muted">
           Volunteer as a blood donor so requesters nearby can find and message you. Listing
           yourself is not a commitment — you decide per request, and every donation still goes
           through standard screening by qualified healthcare professionals.
@@ -90,13 +90,13 @@ export default function Donate() {
             {p.blood_type ? (
               <BloodTypeBadge type={p.blood_type} size="lg" />
             ) : (
-              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-ink text-xs font-bold text-cream/45">
+              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-ink text-xs font-bold text-muted">
                 N/A
               </div>
             )}
             <div>
               <p className="font-semibold text-cream">My donor profile</p>
-              <p className="text-sm text-cream/65">
+              <p className="text-sm text-muted">
                 {p.region || 'Region not set'}
                 {p.city ? ` · ${p.city}` : ''}
               </p>
@@ -107,7 +107,7 @@ export default function Donate() {
           </Link>
         </div>
         {!profileReady && (
-          <p className="mt-3 text-sm text-amber-300">
+          <p className="mt-3 text-sm text-amber-700">
             Add your blood type and region to your profile first — they are required so the
             ABO/Rh preliminary filter and region ranking can place you correctly.
           </p>
@@ -126,7 +126,7 @@ export default function Donate() {
           )}
         </div>
         {offer && (
-          <p className="mt-1 text-xs text-cream/45">
+          <p className="mt-1 text-xs text-muted">
             Created {formatDate(offer.created_at)} · last updated {formatDate(offer.updated_at)}
           </p>
         )}
@@ -149,7 +149,7 @@ export default function Donate() {
                 placeholder="e.g. I usually donate on weekends in Quezon City. Message me anytime."
                 maxLength={OFFER_NOTE_MAX}
               />
-              <p className="mt-1 text-xs text-cream/45">
+              <p className="mt-1 text-xs text-muted">
                 {note.length}/{OFFER_NOTE_MAX} characters · shown on your donor listing
               </p>
             </div>
@@ -206,7 +206,7 @@ export default function Donate() {
               </button>
             </div>
             {!profileReady && (
-              <p className="mt-2 text-right text-xs text-cream/45">
+              <p className="mt-2 text-right text-xs text-muted">
                 Complete your profile to enable listing.
               </p>
             )}
@@ -214,7 +214,7 @@ export default function Donate() {
         )}
       </section>
 
-      <p className="text-xs leading-relaxed text-cream/45">
+      <p className="text-xs leading-relaxed text-muted">
         Every listing change is written to the administrator activity log. Matching is a
         preliminary filter only — actual compatibility and donor screening are always decided
         by qualified healthcare professionals.

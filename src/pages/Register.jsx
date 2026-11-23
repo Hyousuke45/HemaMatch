@@ -5,6 +5,7 @@ import { Alert } from '../components/ui';
 import { isValidEmail, validatePassword, classNames } from '../lib/utils';
 import dataService, { isMock } from '../lib/dataService';
 import { ACCOUNT_TYPES, ACCOUNT_TYPE_DESCRIPTIONS, REGIONS } from '../lib/constants';
+import { MailCheck } from 'lucide-react';
 
 // Registration + email verification.
 // v4: after the basics, the user picks WHAT they are:
@@ -110,10 +111,8 @@ export default function Register() {
     return (
       <div className="mx-auto max-w-md py-6">
         <div className="card p-6">
-          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-400/15">
-            <svg className="h-6 w-6 text-emerald-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
-            </svg>
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-50">
+            <MailCheck className="h-6 w-6 text-emerald-700" strokeWidth={2} aria-hidden="true" />
           </div>
           <h1 className="mt-4 text-xl font-bold text-cream">Verify your email</h1>
           <p className="mt-2 text-sm leading-relaxed text-cream/75">
@@ -123,7 +122,7 @@ export default function Register() {
 
           {isMock ? (
             <div className="card-well mt-5 p-4">
-              <p className="text-xs font-semibold uppercase tracking-wide text-cream/45">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted">
                 Mock mode simulation (no real email is sent)
               </p>
               <button
@@ -135,7 +134,7 @@ export default function Register() {
                 {busy ? 'Verifying…' : 'Simulate clicking the verification link'}
               </button>
               {verifyError && (
-                <p className="mt-2 text-sm font-medium text-red-400">{verifyError}</p>
+                <p className="mt-2 text-sm font-medium text-red-600">{verifyError}</p>
               )}
             </div>
           ) : (
@@ -155,12 +154,12 @@ export default function Register() {
                 {busy ? 'Sending…' : resent ? 'Email sent' : 'Resend confirmation email'}
               </button>
               {verifyError && (
-                <p className="text-sm font-medium text-red-400">{verifyError}</p>
+                <p className="text-sm font-medium text-red-600">{verifyError}</p>
               )}
             </div>
           )}
 
-          <p className="mt-4 text-sm text-cream/65">
+          <p className="mt-4 text-sm text-muted">
             Already confirmed?{' '}
             <Link to="/login" className="font-medium text-gold hover:underline">
               Sign in
@@ -174,7 +173,7 @@ export default function Register() {
   return (
     <div className="mx-auto max-w-md py-6">
       <h1 className="text-2xl font-bold text-cream">Create your account</h1>
-      <p className="mt-1 text-sm text-cream/65">
+      <p className="mt-1 text-sm text-muted">
         Every account can both donate blood and request blood.
       </p>
 
@@ -222,7 +221,7 @@ export default function Register() {
             placeholder="At least 8 characters"
             autoComplete="new-password"
           />
-          <p className="mt-1 text-xs text-cream/45">
+          <p className="mt-1 text-xs text-muted">
             Minimum 8 characters, with at least one letter and one number.
           </p>
         </div>
@@ -242,7 +241,7 @@ export default function Register() {
         </div>
 
         {/* v4 — account type picker */}
-        <div className="border-t border-cream/10 pt-4">
+        <div className="border-t border-line pt-4">
           <span className="label">I am registering as…</span>
           <div className="grid gap-2">
             {ACCOUNT_OPTIONS.map((type) => (
@@ -252,7 +251,7 @@ export default function Register() {
                   'flex cursor-pointer items-start gap-3 rounded-xl border p-3.5 transition-colors',
                   accountType === type
                     ? 'border-gold/60 bg-gold/10'
-                    : 'border-cream/15 hover:border-cream/30 hover:bg-cream/5'
+                    : 'border-line hover:border-line hover:bg-pale'
                 )}
               >
                 <input
@@ -267,21 +266,21 @@ export default function Register() {
                   <span className="block text-sm font-semibold text-cream">
                     {ACCOUNT_TYPES[type]}
                   </span>
-                  <span className="mt-0.5 block text-xs leading-relaxed text-cream/65">
+                  <span className="mt-0.5 block text-xs leading-relaxed text-muted">
                     {ACCOUNT_TYPE_DESCRIPTIONS[type]}
                   </span>
                 </span>
               </label>
             ))}
           </div>
-          <p className="mt-2 text-xs text-cream/45">
+          <p className="mt-2 text-xs text-muted">
             Doctors and businesses still donate and request blood — those abilities are inherited.
           </p>
         </div>
 
         {/* Doctor-specific fields */}
         {accountType === 'doctor' && (
-          <div className="space-y-4 border-t border-cream/10 pt-4">
+          <div className="space-y-4 border-t border-line pt-4">
             <p className="text-xs font-semibold uppercase tracking-wide text-gold">
               Doctor details (verified by the hospital you apply to)
             </p>
@@ -323,7 +322,7 @@ export default function Register() {
                 placeholder="0917-123-4567"
                 maxLength={40}
               />
-              <p className="mt-1 text-xs text-cream/45">
+              <p className="mt-1 text-xs text-muted">
                 Shown on your hospital&apos;s doctor directory entry. After registering, apply to a
                 hospital from its page — the hospital admin verifies your application.
               </p>
@@ -333,7 +332,7 @@ export default function Register() {
 
         {/* Business-specific fields */}
         {accountType === 'business' && (
-          <div className="space-y-4 border-t border-cream/10 pt-4">
+          <div className="space-y-4 border-t border-line pt-4">
             <p className="text-xs font-semibold uppercase tracking-wide text-gold">
               Hospital details (you become its admin)
             </p>
@@ -419,7 +418,7 @@ export default function Register() {
                 placeholder="What your hospital offers — blood bank hours, specialties, transfusion services…"
                 maxLength={1200}
               />
-              <p className="mt-1 text-xs text-cream/45">
+              <p className="mt-1 text-xs text-muted">
                 Your hospital starts as <span className="font-semibold">Pending</span> until a
                 platform administrator verifies it. You can edit the description and add a photo
                 from your hospital panel anytime.
@@ -438,7 +437,7 @@ export default function Register() {
           {busy ? 'Creating account…' : 'Create account'}
         </button>
 
-        <p className="text-center text-sm text-cream/65">
+        <p className="text-center text-sm text-muted">
           Already have an account?{' '}
           <Link to="/login" className="font-medium text-gold hover:underline">
             Sign in
@@ -446,7 +445,7 @@ export default function Register() {
         </p>
       </form>
 
-      <p className="mt-4 text-center text-xs leading-relaxed text-cream/45">
+      <p className="mt-4 text-center text-xs leading-relaxed text-muted">
         By creating an account you understand that HemaMatch is an academic platform and that all
         blood-type matching is preliminary — actual eligibility is decided by healthcare
         professionals.

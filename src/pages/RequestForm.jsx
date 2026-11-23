@@ -126,7 +126,7 @@ export default function RequestForm() {
       <h1 className="text-2xl font-bold text-cream">
         {isEdit ? 'Edit blood request' : 'Create a blood request'}
       </h1>
-      <p className="mt-1 text-sm text-cream/65">
+      <p className="mt-1 text-sm text-muted">
         Describe what is needed. The request starts as <span className="font-semibold">Pending</span>{' '}
         and all signed-in users can see it.
       </p>
@@ -152,7 +152,7 @@ export default function RequestForm() {
               ))}
             </select>
             {form.blood_type && (
-              <p className="mt-1 text-xs text-cream/45">
+              <p className="mt-1 text-xs text-muted">
                 Patients with {form.blood_type} can receive from:{' '}
                 <span className="font-semibold text-cream/70">
                   {compatibleDonors.join(', ')}
@@ -191,7 +191,7 @@ export default function RequestForm() {
                     className={`flex cursor-pointer select-none items-center gap-2.5 rounded-xl border px-3.5 py-2.5 text-sm font-semibold transition ${
                       checked
                         ? 'border-gold/60 bg-gold/10 text-cream'
-                        : 'border-cream/15 bg-ink text-cream/75 hover:border-cream/35'
+                        : 'border-line bg-ink text-cream/75 hover:border-line'
                     }`}
                   >
                     <input
@@ -206,11 +206,11 @@ export default function RequestForm() {
               })}
             </div>
           ) : (
-            <p className="mt-1 text-xs text-cream/45">
+            <p className="mt-1 text-xs text-muted">
               Choose the blood type needed first — the compatible donor types appear here.
             </p>
           )}
-          <p className="mt-1 text-xs text-cream/45">
+          <p className="mt-1 text-xs text-muted">
             {form.blood_type
               ? `Only the ${compatibleDonors.length} blood type${
                   compatibleDonors.length === 1 ? '' : 's'
@@ -232,7 +232,7 @@ export default function RequestForm() {
                 </option>
               ))}
             </select>
-            <p className="mt-1 text-xs text-cream/45">Matching prioritizes donors from the same region.</p>
+            <p className="mt-1 text-xs text-muted">Matching prioritizes donors from the same region.</p>
           </div>
           <div>
             <label className="label" htmlFor="urgency">
@@ -266,7 +266,7 @@ export default function RequestForm() {
               </option>
             ))}
           </select>
-          <p className="mt-1 text-xs text-cream/45">
+          <p className="mt-1 text-xs text-muted">
             {selectedHospital
               ? `${selectedHospital.name} will be notified about this request — the donation process happens there, witnessed by its assigned doctors.`
               : 'Required — the donation process happens at the hospital. Only administrator-verified hospitals can be selected; adding one notifies the hospital.'}
@@ -294,7 +294,7 @@ export default function RequestForm() {
             placeholder="Patient context, hospital coordination notes… (max 600 characters)"
             maxLength={600}
           />
-          <p className="mt-1 text-xs text-cream/45">
+          <p className="mt-1 text-xs text-muted">
             Do not include sensitive personal data beyond what is needed for coordination.
           </p>
         </div>
@@ -307,7 +307,7 @@ export default function RequestForm() {
 
         {/* Mobile: actions stay pinned above the tab bar while scrolling
             the form; desktop keeps the normal in-card footer. */}
-        <div className="sticky bottom-20 z-30 -mx-6 flex flex-col gap-2 border-t border-cream/10 bg-night/95 px-6 pb-4 pt-3 backdrop-blur md:static md:mx-0 md:flex-row md:justify-end md:border-0 md:bg-transparent md:p-0 md:pt-0">
+        <div className="sticky bottom-20 z-30 -mx-6 flex flex-col gap-2 border-t border-line bg-night/95 px-6 pb-4 pt-3 backdrop-blur md:static md:mx-0 md:flex-row md:justify-end md:border-0 md:bg-transparent md:p-0 md:pt-0">
           <button type="button" className="btn-secondary w-full md:w-auto" onClick={() => navigate(-1)} disabled={busy}>
             Cancel
           </button>
@@ -317,7 +317,7 @@ export default function RequestForm() {
         </div>
       </form>
 
-      <p className="mt-4 text-xs leading-relaxed text-cream/45">
+      <p className="mt-4 text-xs leading-relaxed text-muted">
         Note: creating a request is not a medical validation. Donors found through HemaMatch still
         go through the hospital&apos;s standard screening process.
       </p>

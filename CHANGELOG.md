@@ -1,10 +1,267 @@
 # HemaMatch — Change Report
 
-**v4.1 — November 7, 2026** (latest) · compatible donor types as individual checkboxes (multi-select, varies by patient blood type), hospital field now required
+**v6.3 — November 21, 2026** (latest) · dashboard declutter: donor-profile card removed, stats condensed into one card, quick actions rebalanced (icon beside label on mobile, 6 columns)
+**v6.2 — November 21, 2026** · dashboard typography + redesigned hospital notifications (concise → expandable → full tab), origin-aware back navigation
+**v6.1 — November 19, 2026** · mobile-first navigation restored per client feedback: bottom tab bar on phones, desktop sidebar untouched
+**v6 — November 19, 2026** · global UI/UX redesign per the client's design instructions: spec palette, sidebar + topbar application shell, Lucide icons, role dashboards with statistics
+**v5 — November 19, 2026** · full light-theme redesign after the DentaBook reference (dentabook.forgroup.space): white surfaces, DM Sans, hairline borders, single red accent
+**v4.1 — November 7, 2026** · compatible donor types as individual checkboxes (multi-select, varies by patient blood type), hospital field now required compatible donor types as individual checkboxes (multi-select, varies by patient blood type), hospital field now required
 **v4 — November 7, 2026** · account-type hierarchy (Donor/Recipient · Doctor · Business), compatible-donor dropdown, hospital notifications, donor-accept flow with assigned doctors, doctor applications, hospital directory with photo pages, hospital messaging
 **v3.1 — November 3, 2026** · Donate tab in the mobile bottom navigation, real app icon files
 **v3 — October 31, 2026** · black theme, profile views on request detail, donation offers, profile photos
 **v2 — October 25, 2026** · rebrand, dark theme, mobile-first, Phase 2 Supabase backend
+
+
+
+
+
+
+---
+
+# HemaMatch — Change Report (v6.3)
+
+**Date:** November 21, 2026 · **Scope:** client follow-up — dashboard layout decluttering.
+
+## What changed
+
+1. **"My donor profile" card removed** — it duplicated the profile entry point that
+   already exists in the top-right profile menu. The donor-listing status line that
+   lived inside it is gone from the dashboard too; listing management stays on the
+   Donate page.
+
+2. **The four stat tiles (My requests / Pending / Accepted / Completed) are now ONE
+   card** — a single surface with an internal 2×2 grid on mobile and a single row of
+   four on desktop, separated by hairline dividers instead of four separate bordered
+   cards. Same numbers, calmer layout, less vertical space.
+
+3. **"Find donors" joined the quick actions** alongside Request blood, Donate blood,
+   Browse requests, Find a hospital and Messages — six actions total (it used to be a
+   small secondary button inside the removed donor-profile card).
+
+4. **Quick action buttons rebalanced on mobile** — icon and label now sit SIDE BY SIDE
+   in one horizontal row (icon left, label center, subtle chevron right) instead of
+   the icon stacking above the name. All six rows are equal-height single-line pills.
+   Desktop is unchanged: the roomy icon-over-text cards, now in a 6-column grid that
+   matches the six actions, with the one-line descriptions still visible there only.
+
+**No backend or schema changes.**
+
+**Verified in-browser:** 390px — donor-profile card gone (regular and business
+dashboards); stats render as one card with exactly one horizontal + one vertical
+divider in the 2×2 mobile grid and no stray borders; six quick-action rows, icon
+bounding box fully left of the label with vertical overlap (side by side), uniform
+66px row heights; no horizontal overflow. 1280px — stats collapse to a single row
+(3 vertical dividers, no horizontal line under the first two cells after fixing a
+stray divider); quick-action cards stack icon-over-label with descriptions visible;
+no overflow. Production build passes.
+
+---
+
+# HemaMatch — Change Report (v6.2)
+
+**Date:** November 21, 2026 · **Scope:** client follow-up — dashboard font size, concise
+expandable notifications, origin-aware back navigation, full notifications tab.
+
+## What changed
+
+1. **Dashboard typography, one notch smaller** — page title 24→20px, stat numbers
+   30→24px, section headings 18→16px, hints and subtitles trimmed to match. Still
+   clearly hierarchical, just no longer oversized.
+
+2. **Notifications are now concise by default and expandable** — a collapsed row shows
+   only the unread dot, title, type and time. Clicking the row expands it to reveal the
+   full message body, the sender, and exactly two actions: **View details** (opens the
+   related request) and **Mark as read**. The actions exist only in the expanded state.
+
+3. **The My-hospital panel shows at most 5 notifications**, with a **"View more (N more)"**
+   link at the bottom that navigates to the new notifications tab. "Mark all as read"
+   stays in the panel header.
+
+4. **Back navigation is origin-aware** — opening a request from a notification's
+   "View details" makes the request page's back link read "← Back to My hospital" (or
+   "← Back to notifications") and actually return there, instead of always dumping the
+   user on /requests. Direct visits from the requests list keep the old behavior.
+
+5. **New /notifications tab** (business accounts) — the full inbox with much more
+   control: status filter (All / Unread / Read), type filter (requests, donor
+   acceptances, doctor applications, outcomes), free-text search over title/body/sender,
+   newest/oldest sort, mark-all-as-read and a live unread counter. Reached from the
+   panel's "View more", the sidebar and the topbar bell.
+
+6. **Topbar bell upgraded** — for business accounts it opens the notifications tab and
+   carries a live unread badge (e.g. "5"); for everyone else it still opens Messages.
+   The sidebar's Hospital section gains a "Notifications" entry (desktop/tablet); the
+   mobile tab bar keeps its 6 thumb-reachable tabs unchanged.
+
+**No backend or schema changes** — everything rides the existing
+`listHospitalNotifications` / `markHospitalNotificationRead` /
+`markAllHospitalNotificationsRead` service calls.
+
+**Verified in-browser:** 390px — collapsed rows show title+time only; expanding reveals
+body + View details + Mark as read (doctor-application rows correctly have no View
+details since they carry no request); panel caps at 5 with "View more (1 more)"; View
+details → request page shows "← Back to My hospital" and returns there; the same flow
+from /notifications returns to /notifications; unread filter 5 of 6 shown; search
+"doctor" → 1 doctor-application row; sort options present; bell badge shows 5; mobile
+tab bar intact and 8-page sweep overflow-free; dashboard h1 renders at 20px, stats at
+24px. 1280px — grace's sidebar unchanged, business sidebar lists My hospital +
+Notifications, bell badge live, no overflow. Production build passes.
+
+---
+
+# HemaMatch — Change Report (v6.1)
+
+**Date:** November 19, 2026 · **Scope:** client follow-up — "don't remove the bottom
+navigation, make this mobile first, but the desktop UI is fine".
+
+## What changed
+
+- **Bottom tab bar restored on phones (< md)**, now with Lucide icons in the v6 design
+  language: Home / Requests / Donate / Messages / role-slot / Profile, 56px
+  thumb-reachable targets, active tab in crimson, translucent white bar with the
+  safe-area padding (pb-safe).
+- **Role-aware 6th tab** (unchanged v5 logic): admins get **Admin**, business (hospital)
+  accounts get **Hospital**, doctors get **Witness**, everyone else gets **Hospitals**.
+- **The mobile drawer is gone again**: the topbar hamburger was removed — on phones,
+  primary navigation is the tab bar; the sidebar (with every section, including the
+  role ones) remains the navigation for md+ tablets and desktops, exactly as delivered
+  in v6.
+- Layout clearances updated for the fixed bar: main content `pb-28`, footer `pb-20`,
+  `pb-safe` on the bar itself; the Messages thread height recalculated
+  (`100dvh-15.5rem` on phones) so the composer always sits above the tab bar.
+- No routes, guards, Supabase calls or business logic touched — shell-only change.
+
+**Verified in-browser:** 390px — tab bar fixed to the bottom on all pages, correct
+role tab for each demo account (user / admin / business / doctor), composer input and
+every page's content clear the bar, zero horizontal overflow across
+dashboard/requests/new/donors/hospitals/messages/profile/donate/my-assignments;
+768px — tab bar hidden, icon-rail sidebar; 1280px — unchanged v6 desktop (256px
+sidebar with labels, topbar bell, no overflow). Production build passes.
+
+---
+
+# HemaMatch — Change Report (v6)
+
+**Date:** November 19, 2026 · **Scope:** the client's global UI/UX design & development
+instructions — DentaBook as visual inspiration, exact HemaMatch brand palette, sidebar
+navigation, professional healthcare SaaS look. Zero functional changes: all routes,
+guards, Supabase integrations, business logic and role permissions untouched.
+
+## 1. Brand palette (spec-exact)
+
+Primary deep crimson #B91C35 (buttons, active nav, links, highlights) · secondary dark
+burgundy #861B32 · accent soft rose #FCE8EC (blood-type tints, icon chips) · background
+off-white #FAFAFB · surfaces pure white · text #202124 / #737780 · semantic
+success/warning/danger retained. Red used strategically; the interface stays calm.
+
+## 2. Application shell (SidebarLayout, new component)
+
+- Desktop: fixed left sidebar (logo lockup, grouped sections — General / Communicate /
+  role sections: Hospital for business admins, Witness for doctors, Administration for
+  admins) with Lucide icons + labels, active page highlighted in soft-rose/red,
+  collapsible to a 72px icon rail (tooltips when collapsed).
+- Tablet (md): icon-rail sidebar.
+- Mobile (< md): slide-in drawer with scrim, auto-closes on navigation; topbar carries
+  the hamburger + compact brand.
+- Topbar: context title, message/notification bell, profile dropdown (avatar, role
+  badge, My profile, Sign out).
+- The old top-nav + bottom-tab-bar shell is now the PUBLIC shell only (landing, login,
+  register, reset, 404); signed-in pages all render inside the sidebar shell.
+- Routing restructured in App.jsx accordingly (page wrapped as children of
+  SidebarLayout inside ProtectedRoute — guards unchanged, admin sub-routes unchanged).
+
+## 3. Icons — Lucide everywhere
+
+lucide-react installed; every inline SVG replaced (sidebar, topbar, dashboard, cards,
+messages, hospitals, profile, register, browse tabs, spinner/empty/error states).
+Consistent outline style, ~1.9-2 stroke, no emoji, no mixed styles.
+
+## 4. Dashboards
+
+- User Dashboard: welcome header + "New request" action, four live stat tiles (My
+  requests / Pending / Accepted / Completed — computed from getMyRequests), role
+  context cards (doctor/business), donor-profile card, five quick-action cards with
+  icon chips, recent requests (first 4 + "View all"), status legend.
+- Admin Dashboard: four headline stat tiles with icon chips (Registered users /
+  Available donors / Pending requests / Completed donations — live from getStats),
+  quick actions (Manage requests / Record an outcome / Review users / Verify
+  hospitals), compact mini-stats for accounts, requests and outcome records, recent
+  administrative activity feed with action chips.
+- BloodTypeBadge: solid crimson with white text — blood types are now immediately
+  identifiable everywhere (spec §6).
+- DonorCard: Lucide location/calendar icons, "Compatible type" chip, icon buttons.
+- RequestCard: icon-enriched meta, clearer hierarchy.
+
+## 5. Fixes
+
+- SidebarLayout renders route children passed as props OR the Outlet (nested admin
+  routes rely on the Outlet).
+- Guard order: SidebarLayout sits inside ProtectedRoute so the auth context is always
+  present.
+
+**Verified in-browser:** all pages at 1280/768/390 across roles (user, admin, business,
+doctor): sidebar sections per role, collapse to rail with tooltips, mobile drawer with
+auto-close, zero horizontal overflow on every page, crimson-on-white chat bubbles,
+solid-crimson blood badges (#B91C35 + white verified), quick actions, live dashboard
+numbers (18 users / 7 donors / 3 pending for admin; 1 request for Grace), zero console
+errors on fresh loads (only pre-existing React Router v7 future-flag warnings).
+Production build passes.
+
+---
+
+# HemaMatch — Change Report (v5)
+
+**Date:** November 19, 2026 · **Scope:** the client's request to make the UI better and
+simplistic, using dentabook.forgroup.space as the reference. The dark "blood thirst"
+theme is replaced end-to-end by a clean light design system; no behavior, routing or
+data changes.
+
+## 1. What was taken from the reference
+
+The DentaBook site was measured live (computed styles, tokens, layout anatomy) and
+reduced to a design system: DM Sans with tight negative tracking on display headings,
+white page and surfaces, ink #16323e text, muted #657985 secondary text, hairline
+#e1eaed borders instead of shadows (shadow only on floating/feature cards),
+10-12px radii, 7-10px button radii, one calm accent, tinted pale sections, a white
+header with a quiet bottom border, and the two-tone wordmark + tiny-caps tagline
+logo lockup.
+
+## 2. How it was applied
+
+- **Design tokens remapped, not scattered.** The app already spoke in 6 semantic
+  tokens, so the theme flips in one place: `ink`/`night` → white surfaces, `cream` →
+  ink text, `gold` → blood red #b3132b (actions, links, highlights), `blood` → pale
+  red badge tint. Plus new `muted`, `line`, `pale` utilities.
+- **Component classes restyled** (buttons: solid red primary, hairline secondary;
+  inputs: white with #d9e5e9 border; cards: white, radius 12, border not shadow;
+  chips, labels 13px/600).
+- **Atoms retuned for light surfaces** in `ui.jsx`: status badges (tinted 50s with
+  800-grade text), alerts, avatars (pastel 100s), BloodTypeBadge (pale red, red text),
+  confirm-dialog scrim.
+- **Sweep across all 30+ JSX files** (scripted, then reviewed): dark-theme opacities
+  → muted ramp, `bg-cream/5` hovers → pale, overlays → light scrim, status colors →
+  700-grade.
+- **Layout**: white sticky header with two-tone "Hema**Match**" + "GIVE BLOOD. SAVE
+  LIVES." tagline, quiet nav links (active = red), white footer on #fbfdfd, light
+  bottom tab bar.
+- **Landing rebuilt on the reference's homepage pattern**: eyebrow, 60px tight
+  heading with highlighted word, floating request card with soft shadow, quick-action
+  link cards with arrow links, ABO/Rh strip on a pale well.
+- **Font**: Inter → DM Sans (400-700), `theme-color` → white, `color-scheme: light`.
+
+## 3. Fixes found during verification
+
+- Chat bubbles: mine = red bubble with white text (was gold-on-night); theirs =
+  pale well with hairline border.
+- Messages grid overflowed its column at phone width (pre-existing, invisible on
+  dark theme) — fixed with `minmax(0,1fr)` + `min-w-0`.
+
+**Verified:** every page scanned in-browser at 390×844 and 1280×900 (landing, login,
+register, dashboard, requests, request form incl. compatibility checkbox pills,
+request detail, messages thread, hospitals, hospital detail, donate, profile, all six
+admin pages): zero horizontal overflow, zero dark surfaces left, no low-contrast text
+(only white-on-red buttons), zero console/page errors; pixel-checked screenshots
+confirm white backgrounds + red accent everywhere. Production build passes.
 
 ---
 

@@ -49,7 +49,7 @@ export default function ResetPassword() {
   if (loading) {
     return (
       <div className="mx-auto max-w-md py-6">
-        <p className="text-center text-sm text-cream/60">Checking your reset link…</p>
+        <p className="text-center text-sm text-muted">Checking your reset link…</p>
       </div>
     );
   }
@@ -78,7 +78,7 @@ export default function ResetPassword() {
   return (
     <div className="mx-auto max-w-md py-6">
       <h1 className="text-2xl font-bold text-cream">Set a new password</h1>
-      <p className="mt-1 text-sm text-cream/65">
+      <p className="mt-1 text-sm text-muted">
         Signed in as <span className="font-semibold">{user.email}</span> via your reset link.
         Choose a new password below.
       </p>

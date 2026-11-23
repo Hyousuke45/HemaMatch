@@ -30,7 +30,7 @@ export default function Requests() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h1 className="text-2xl font-bold text-cream">Blood donation requests</h1>
-            <p className="mt-1 text-sm text-cream/65">
+            <p className="mt-1 text-sm text-muted">
               All requests are visible to signed-in users. Choose one to view details and message the requester.
             </p>
           </div>
@@ -109,7 +109,7 @@ export default function Requests() {
 
       {!loading && !error && data?.length > 0 && (
         <>
-          <p className="text-sm text-cream/65">
+          <p className="text-sm text-muted">
             Showing <span className="font-semibold text-cream">{data.length}</span>{' '}
             {data.length === 1 ? 'request' : 'requests'}
           </p>

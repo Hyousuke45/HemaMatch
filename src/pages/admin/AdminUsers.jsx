@@ -54,7 +54,7 @@ export default function AdminUsers() {
         <div className="card overflow-x-auto">
           <table className="w-full min-w-[900px] text-sm">
             <thead>
-              <tr className="border-b border-cream/15 text-left text-xs uppercase tracking-wide text-cream/45">
+              <tr className="border-b border-line text-left text-xs uppercase tracking-wide text-muted">
                 <th className="px-4 py-3">User</th>
                 <th className="px-4 py-3">Email</th>
                 <th className="px-4 py-3">Blood type</th>
@@ -68,19 +68,19 @@ export default function AdminUsers() {
                 const type = u.profile.role;
                 const toggleable = type === 'user' || type === 'admin';
                 return (
-                  <tr key={u.id} className="hover:bg-cream/5">
+                  <tr key={u.id} className="hover:bg-pale">
                     <td className="px-4 py-3">
                       <span className="flex items-center gap-2.5">
                         <Avatar name={u.profile.full_name} src={u.profile.avatar_url} size="sm" />
                         <span>
                           <span className="block font-medium text-cream">{u.profile.full_name}</span>
-                          <span className="block text-xs text-cream/45">joined {formatDate(u.profile.created_at)}</span>
+                          <span className="block text-xs text-muted">joined {formatDate(u.profile.created_at)}</span>
                         </span>
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-cream/65">{u.email}</td>
+                    <td className="px-4 py-3 text-muted">{u.email}</td>
                     <td className="px-4 py-3">
-                      {u.profile.blood_type ? <BloodTypeBadge type={u.profile.blood_type} /> : <span className="text-cream/45">—</span>}
+                      {u.profile.blood_type ? <BloodTypeBadge type={u.profile.blood_type} /> : <span className="text-muted">—</span>}
                     </td>
                     <td className="px-4 py-3 text-cream/75">{u.profile.region || '—'}</td>
                     <td className="px-4 py-3">
@@ -90,13 +90,13 @@ export default function AdminUsers() {
                         <span className="flex flex-col gap-1">
                           <StatusBadge status="routine" label={ACCOUNT_TYPES[type] || type} />
                           {type === 'doctor' && (
-                            <span className="text-xs text-cream/55">
+                            <span className="text-xs text-muted">
                               {u.profile.doctor_license_id || 'no license ID'}
                               {u.profile.specialization ? ` · ${u.profile.specialization}` : ''}
                             </span>
                           )}
                           {type === 'business' && (
-                            <span className="text-xs text-cream/55">
+                            <span className="text-xs text-muted">
                               {u.profile.is_doctor ? 'also a licensed doctor' : 'hospital admin'}
                               {u.profile.is_doctor && u.profile.doctor_license_id
                                 ? ` · ${u.profile.doctor_license_id}`
@@ -130,7 +130,7 @@ export default function AdminUsers() {
                           {type === 'admin' ? 'Revoke admin' : 'Make admin'}
                         </button>
                       ) : (
-                        <span className="text-xs text-cream/40" title="Account types are fixed at registration">
+                        <span className="text-xs text-slate-400" title="Account types are fixed at registration">
                           —
                         </span>
                       )}
@@ -143,7 +143,7 @@ export default function AdminUsers() {
         </div>
       )}
 
-      <p className="text-xs leading-relaxed text-cream/45">
+      <p className="text-xs leading-relaxed text-muted">
         Doctor and Business accounts cannot be toggled here — their type is tied to their hospital
         links (rosters, applications, admin records). A doctor becomes an admin only by registering
         the account that way; platform admins still oversee all of their activity.

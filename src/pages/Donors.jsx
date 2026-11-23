@@ -46,7 +46,7 @@ export default function Donors() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-cream">Available donors</h1>
-          <p className="mt-1 text-sm text-cream/65">
+          <p className="mt-1 text-sm text-muted">
             People who volunteered to donate. Message one directly — coordination and screening
             details are agreed in private chat.
           </p>
@@ -123,7 +123,7 @@ export default function Donors() {
 
       {!loading && !error && data?.length > 0 && (
         <>
-          <p className="text-sm text-cream/65">
+          <p className="text-sm text-muted">
             Showing <span className="font-semibold text-cream">{data.length}</span>{' '}
             {data.length === 1 ? 'donor listing' : 'donor listings'}
             {hasFilters ? ' (filtered)' : ' · same-region donors first'}
@@ -136,7 +136,7 @@ export default function Donors() {
         </>
       )}
 
-      <p className="text-xs text-cream/45">
+      <p className="text-xs text-muted">
         Want to appear here? Create your donor listing on the{' '}
         <Link to="/donate" className="font-medium text-gold hover:underline">
           Donate blood

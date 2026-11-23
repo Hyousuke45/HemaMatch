@@ -9,7 +9,7 @@ Academic MVP connecting people who need blood with volunteer donors — and lett
 
 ---
 
-## Where the project stands (v4.1)
+## Where the project stands (v6)
 
 | Layer | Status |
 |---|---|
@@ -21,7 +21,7 @@ Academic MVP connecting people who need blood with volunteer donors — and lett
 | Business panel (v4) | `My hospital`: live stats, **notifications inbox** (new requests / donor acceptances / doctor applications), doctor application review, hospital profile editing (photo, description, location, contact) and **outcome records with the witnessing doctor** |
 | Doctor panel (v4) | `My assignments`: every transaction the doctor is assigned to as the witness/middleman — the request, donor, hospital and recorded outcome |
 | Messaging (v4) | Hospital threads show the **hospital name in the header** ("messages go to the administrator"); doctor chats show the **doctor's hospital beside their name** |
-| Theme | Dark **"blood thirst"** theme, all-black background everywhere |
+| Theme (v6) | Healthcare-SaaS light theme: spec palette (crimson **#B91C35** primary, soft-rose **#FCE8EC** accents, off-white **#FAFAFB** background), **DM Sans**, sidebar + topbar app shell on desktop/tablet, **bottom tab bar on phones (mobile-first)**, **Lucide** icons, role dashboards with live statistics |
 | UX | **Mobile-first** (bottom tab bar, 44px touch targets, safe areas, bottom-sheet dialogs); the tab bar adapts to the account type (Admin / Hospital / Witness) |
 | Data | Two interchangeable backends behind one contract: **mock** (localStorage) and **Supabase** (PostgreSQL + RLS). Chosen automatically by `.env` |
 | Auth | Mock mode simulates the email link; **Supabase mode uses real Supabase Auth** |
@@ -36,7 +36,7 @@ See **CHANGELOG.md** for the full change history.
 
 ---
 
-## Demo accounts (v4.1)
+## Demo accounts (v6)
 
 | Account | Email | Password | Role / notes |
 |---|---|---|---|
@@ -56,7 +56,7 @@ The same accounts exist in **Supabase mode** — `supabase/seed.sql` creates the
 **Reset demo data anytime:** open the browser DevTools console and run
 `localStorage.removeItem('hemamatch_mock_db_v5')` (data re-seeds on next load).
 
-### v4.1 demo script (10 minutes)
+### v6 demo script (10 minutes)
 
 1. **Register** → pick each account type to see the role-specific fields (doctor: license/specialization/contact; business: hospital record) → verify email (simulated in mock mode).
 2. **Create a request** as Grace: choose blood type **O+** → the *Preferred donor blood types* checkboxes show **O- and O+** only (switch to **AB+** and all 8 appear; **O-** shows a single checkbox) → check **O-** → pick the **hospital** (required — "Not specified" no longer exists) → **St. Mary General Hospital**.

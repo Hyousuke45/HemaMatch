@@ -16,6 +16,8 @@ import {
 } from '../components/ui';
 import { formatDate, formatDateTime } from '../lib/utils';
 import { DOCTOR_APP_STATUS, OUTCOMES } from '../lib/constants';
+import { Building2 } from 'lucide-react';
+import NotificationList from '../components/NotificationList';
 
 // ============================================================
 // MY HOSPITAL — the Business (hospital admin) panel. v4.
@@ -32,7 +34,7 @@ import { DOCTOR_APP_STATUS, OUTCOMES } from '../lib/constants';
 // abilities too (see My assignments in the nav).
 // ============================================================
 
-// ---------- Notifications inbox ----------
+// ---------- Notifications inbox (v6.2: concise, expandable, capped at 5) ----------
 function Notifications() {
   const { data: notifications, loading, error, reload } = useAsync(
     () => dataService.listHospitalNotifications(),
@@ -78,55 +80,15 @@ function Notifications() {
         )}
       </div>
 
-      {notifications?.length === 0 ? (
-        <p className="mt-3 text-sm text-cream/65">
-          Nothing yet — you will be notified when a requester attaches your hospital to a request,
-          a donor accepts one, or a doctor applies to join you.
-        </p>
-      ) : (
-        <div className="mt-4 space-y-2">
-          {notifications.map((n) => (
-            <div
-              key={n.id}
-              className={`flex items-start gap-3 rounded-xl border p-3.5 ${
-                n.read ? 'border-cream/10 bg-ink/60' : 'border-gold/40 bg-gold/10'
-              }`}
-            >
-              <span
-                className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${n.read ? 'bg-cream/25' : 'bg-gold'}`}
-                aria-hidden="true"
-              />
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-semibold text-cream">{n.title}</p>
-                <p className="mt-0.5 text-sm leading-relaxed text-cream/70">{n.body}</p>
-                <p className="mt-1 text-xs text-cream/45">
-                  {n.actor_name ? `${n.actor_name} · ` : ''}
-                  {formatDateTime(n.created_at)}
-                </p>
-              </div>
-              <div className="flex shrink-0 flex-col items-end gap-1.5">
-                {n.request_id && (
-                  <Link to={`/requests/${n.request_id}`} className="btn-secondary !min-h-8 !px-2.5 !py-1 !text-[11px]">
-                    View request
-                  </Link>
-                )}
-                {!n.read && (
-                  <button
-                    type="button"
-                    className="text-xs font-semibold text-gold hover:underline"
-                    onClick={async () => {
-                      await dataService.markHospitalNotificationRead(n.id);
-                      await reload();
-                    }}
-                  >
-                    Mark read
-                  </button>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+      <div className="mt-4">
+        {/* Concise rows: title + time collapsed; body/actions on click.
+            Capped at 5 — "View more" leads to /notifications. */}
+        <NotificationList
+          notifications={notifications}
+          variant="panel"
+          onMarkedRead={reload}
+        />
+      </div>
     </div>
   );
 }
@@ -173,7 +135,7 @@ function DoctorApplications({ applications, onChange }) {
   return (
     <div className="card p-6">
       <p className="font-semibold text-cream">Doctor applications</p>
-      <p className="mt-1 text-sm text-cream/65">
+      <p className="mt-1 text-sm text-muted">
         Doctors apply with their license ID and details — verify them here. Accepted doctors join
         your roster and can be assigned to witness donation transactions.
       </p>
@@ -184,7 +146,7 @@ function DoctorApplications({ applications, onChange }) {
       )}
 
       {pending.length === 0 && reviewed.length === 0 && (
-        <p className="mt-4 text-sm text-cream/65">
+        <p className="mt-4 text-sm text-muted">
           No applications yet. Doctors apply from your hospital&apos;s public page.
         </p>
       )}
@@ -201,19 +163,19 @@ function DoctorApplications({ applications, onChange }) {
                     <p className="text-xs text-cream/70">
                       {a.doctor_specialization || 'Specialization not stated'}
                     </p>
-                    <p className="mt-1 text-xs text-cream/60">
+                    <p className="mt-1 text-xs text-muted">
                       License ID:{' '}
                       <span className="font-semibold text-cream/85">{a.doctor_license_id || '—'}</span>{' '}
                       · Contact:{' '}
                       <span className="font-semibold text-cream/85">{a.doctor_contact_number || '—'}</span>
                     </p>
-                    {a.doctor_email && <p className="text-xs text-cream/55">{a.doctor_email}</p>}
+                    {a.doctor_email && <p className="text-xs text-muted">{a.doctor_email}</p>}
                     {a.application_note && (
-                      <p className="mt-2 rounded-lg border border-cream/10 bg-ink p-2.5 text-sm leading-relaxed text-cream/75">
+                      <p className="mt-2 rounded-lg border border-line bg-ink p-2.5 text-sm leading-relaxed text-cream/75">
                         “{a.application_note}”
                       </p>
                     )}
-                    <p className="mt-1 text-xs text-cream/45">Applied {formatDate(a.created_at)}</p>
+                    <p className="mt-1 text-xs text-muted">Applied {formatDate(a.created_at)}</p>
                   </div>
                 </div>
                 <div className="flex gap-2">
@@ -232,14 +194,14 @@ function DoctorApplications({ applications, onChange }) {
 
       {reviewed.length > 0 && (
         <div className="mt-4">
-          <p className="text-xs font-semibold uppercase tracking-wide text-cream/45">Reviewed</p>
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted">Reviewed</p>
           <div className="mt-2 divide-y divide-cream/10">
             {reviewed.map((a) => (
               <div key={a.id} className="flex flex-wrap items-center gap-2 py-2.5 text-sm">
                 <span className="font-medium text-cream">{a.doctor_name}</span>
                 <StatusBadge status={a.status === 'accepted' ? 'verified' : 'rejected'} label={DOCTOR_APP_STATUS[a.status]} />
-                {a.doctor_license_id && <span className="text-xs text-cream/55">{a.doctor_license_id}</span>}
-                <span className="ml-auto text-xs text-cream/45">
+                {a.doctor_license_id && <span className="text-xs text-muted">{a.doctor_license_id}</span>}
+                <span className="ml-auto text-xs text-muted">
                   {a.reviewed_by_name ? `by ${a.reviewed_by_name} · ` : ''}
                   {formatDate(a.reviewed_at || a.created_at)}
                 </span>
@@ -282,13 +244,13 @@ function TrackedRecords() {
   return (
     <div className="card p-6">
       <p className="font-semibold text-cream">Outcome records at your hospital</p>
-      <p className="mt-1 text-sm text-cream/65">
+      <p className="mt-1 text-sm text-muted">
         Every recorded transaction at {''}
         your hospital — with the donor and the witnessing doctor.
       </p>
 
       {records?.length === 0 ? (
-        <p className="mt-4 text-sm text-cream/65">
+        <p className="mt-4 text-sm text-muted">
           No outcome records yet. Records are written when an accepted request is completed.
         </p>
       ) : (
@@ -305,10 +267,10 @@ function TrackedRecords() {
                     </Link>
                   )}
                 </span>
-                <span className="ml-auto text-xs text-cream/45">{formatDateTime(rec.created_at)}</span>
+                <span className="ml-auto text-xs text-muted">{formatDateTime(rec.created_at)}</span>
               </div>
               <p className="mt-1 text-sm text-cream/75">{rec.reason || 'No reason recorded.'}</p>
-              <p className="mt-0.5 text-xs text-cream/55">
+              <p className="mt-0.5 text-xs text-muted">
                 {rec.donor_name ? `Donor: ${rec.donor_name}` : 'Donor not specified'}
                 {rec.doctor_name ? ` · Witnessed by: ${rec.doctor_name}` : ''}
                 {` · Recorded by ${rec.recorded_by_name}`}
@@ -394,7 +356,7 @@ function HospitalProfileEditor({ hospital, onSaved }) {
     <form onSubmit={handleSubmit} className="card space-y-5 p-6">
       <div>
         <p className="font-semibold text-cream">Hospital profile</p>
-        <p className="mt-1 text-sm text-cream/65">
+        <p className="mt-1 text-sm text-muted">
           This is what every user sees on your hospital&apos;s page. Name, region and verification
           are managed by the platform administrators.
         </p>
@@ -404,11 +366,11 @@ function HospitalProfileEditor({ hospital, onSaved }) {
       <div>
         <span className="label">Hospital photo (page background)</span>
         <div className="flex flex-wrap items-center gap-4">
-          <div className="h-24 w-40 overflow-hidden rounded-xl border border-cream/15 bg-ink">
+          <div className="h-24 w-40 overflow-hidden rounded-xl border border-line bg-ink">
             {form.photo_url ? (
               <img src={form.photo_url} alt="" className="h-full w-full object-cover" />
             ) : (
-              <div className="flex h-full w-full items-center justify-center text-xs text-cream/40">
+              <div className="flex h-full w-full items-center justify-center text-xs text-slate-400">
                 No photo yet
               </div>
             )}
@@ -448,7 +410,7 @@ function HospitalProfileEditor({ hospital, onSaved }) {
                 />
               </div>
             )}
-            <p className="max-w-xs text-xs text-cream/45">
+            <p className="max-w-xs text-xs text-muted">
               The photo becomes the background of your hospital page, fading into the description
               below it.
             </p>
@@ -473,7 +435,7 @@ function HospitalProfileEditor({ hospital, onSaved }) {
           placeholder="What your hospital offers — blood bank hours, specialties, transfusion services…"
           maxLength={1200}
         />
-        <p className="mt-1 text-xs text-cream/45">Shown right under the photo on your hospital page.</p>
+        <p className="mt-1 text-xs text-muted">Shown right under the photo on your hospital page.</p>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
@@ -551,10 +513,8 @@ export default function MyHospital() {
           {hospital.photo_url ? (
             <img src={hospital.photo_url} alt="" className="h-full w-full object-cover" />
           ) : (
-            <div className="flex h-full w-full items-center justify-center bg-blood text-cream/30">
-              <svg className="h-12 w-12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 21V6.2A2.2 2.2 0 016.7 4h10.6a2.2 2.2 0 012.2 2.2V21M4.5 21h15M9.4 4V2.6M14.6 4V2.6M12 8.2v6m-3-3h6" />
-              </svg>
+            <div className="flex h-full w-full items-center justify-center bg-blood text-slate-400">
+              <Building2 className="h-12 w-12" strokeWidth={1.2} aria-hidden="true" />
             </div>
           )}
           <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-night via-night/55 to-transparent" />
@@ -596,7 +556,7 @@ export default function MyHospital() {
       <HospitalProfileEditor hospital={hospital} onSaved={reload} />
       <TrackedRecords />
 
-      <p className="text-xs leading-relaxed text-cream/45">
+      <p className="text-xs leading-relaxed text-muted">
         As a business account you keep every Donor/Recipient ability (donate, request blood). If
         you are also a licensed doctor, enable it on your profile to inherit the Doctor abilities —
         you will then witness transactions at your own hospital.

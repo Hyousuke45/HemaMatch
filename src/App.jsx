@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { BrowserRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import Layout from './components/Layout';
+import SidebarLayout from './components/SidebarLayout';
 import { ProtectedRoute, AdminRoute } from './components/ProtectedRoute';
 import AdminLayout from './components/AdminLayout';
 
@@ -21,6 +22,7 @@ import Messages from './pages/Messages';
 import Hospitals from './pages/Hospitals';
 import HospitalDetail from './pages/HospitalDetail';
 import MyHospital from './pages/MyHospital';
+import Notifications from './pages/Notifications';
 import MyAssignments from './pages/MyAssignments';
 import NotFound from './pages/NotFound';
 
@@ -40,157 +42,149 @@ function ScrollToTop() {
   return null;
 }
 
+// v6 routing: public pages render inside the marketing shell (Layout),
+// every authenticated page renders inside the application shell with
+// the sidebar + topbar (SidebarLayout). Routes, guards and nested admin
+// structure are unchanged — only the shell around them moved.
+
+// Wraps a page so it renders inside SidebarLayout under the same guard.
+// SidebarLayout reads the auth context, so it must sit INSIDE the guard.
+const app = (element) => <ProtectedRoute><SidebarLayout>{element}</SidebarLayout></ProtectedRoute>;
+
 export default function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
         <ScrollToTop />
         <Routes>
+          {/* ---------- Public shell (header + footer) ---------- */}
           <Route element={<Layout />}>
-            {/* Public */}
             <Route index element={<Landing />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
             {/* Supabase mode: landing page of the emailed reset link */}
             <Route path="/reset-password" element={<ResetPassword />} />
-
-            {/* Authenticated */}
-            <Route
-              path="/dashboard"
-              element={
-                <ProtectedRoute>
-                  <Dashboard />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/profile"
-              element={
-                <ProtectedRoute>
-                  <Profile />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/requests"
-              element={
-                <ProtectedRoute>
-                  <Requests />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/requests/new"
-              element={
-                <ProtectedRoute>
-                  <RequestForm />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/requests/:id"
-              element={
-                <ProtectedRoute>
-                  <RequestDetail />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/requests/:id/edit"
-              element={
-                <ProtectedRoute>
-                  <RequestForm />
-                </ProtectedRoute>
-              }
-            />
-            {/* v3 — the "donate" side: my listing + the donor directory */}
-            <Route
-              path="/donate"
-              element={
-                <ProtectedRoute>
-                  <Donate />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/donors"
-              element={
-                <ProtectedRoute>
-                  <Donors />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/messages"
-              element={
-                <ProtectedRoute>
-                  <Messages />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/messages/:conversationId"
-              element={
-                <ProtectedRoute>
-                  <Messages />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/hospitals"
-              element={
-                <ProtectedRoute>
-                  <Hospitals />
-                </ProtectedRoute>
-              }
-            />
-            {/* v4 — hospital detail (photo + description + roster) */}
-            <Route
-              path="/hospitals/:id"
-              element={
-                <ProtectedRoute>
-                  <HospitalDetail />
-                </ProtectedRoute>
-              }
-            />
-            {/* v4 — business (hospital admin) panel */}
-            <Route
-              path="/my-hospital"
-              element={
-                <ProtectedRoute>
-                  <MyHospital />
-                </ProtectedRoute>
-              }
-            />
-            {/* v4 — the doctor's witnessed transactions */}
-            <Route
-              path="/my-assignments"
-              element={
-                <ProtectedRoute>
-                  <MyAssignments />
-                </ProtectedRoute>
-              }
-            />
-
-            {/* Administrator only (RLS mirror: database also enforces) */}
-            <Route
-              path="/admin"
-              element={
-                <AdminRoute>
-                  <AdminLayout />
-                </AdminRoute>
-              }
-            >
-              <Route index element={<AdminDashboard />} />
-              <Route path="requests" element={<AdminRequests />} />
-              <Route path="records" element={<AdminRecords />} />
-              <Route path="users" element={<AdminUsers />} />
-              <Route path="hospitals" element={<AdminHospitals />} />
-              <Route path="logs" element={<AdminLogs />} />
-            </Route>
-
             <Route path="*" element={<NotFound />} />
+          </Route>
+
+          {/* ---------- Application shell (sidebar + topbar) ---------- */}
+          <Route
+            path="/dashboard"
+            element={app(
+              <Dashboard />
+            )}
+          />
+          <Route
+            path="/profile"
+            element={app(
+              <Profile />
+            )}
+          />
+          <Route
+            path="/requests"
+            element={app(
+              <Requests />
+            )}
+          />
+          <Route
+            path="/requests/new"
+            element={app(
+              <RequestForm />
+            )}
+          />
+          <Route
+            path="/requests/:id"
+            element={app(
+              <RequestDetail />
+            )}
+          />
+          <Route
+            path="/requests/:id/edit"
+            element={app(
+              <RequestForm />
+            )}
+          />
+          {/* v3 — the "donate" side: my listing + the donor directory */}
+          <Route
+            path="/donate"
+            element={app(
+              <Donate />
+            )}
+          />
+          <Route
+            path="/donors"
+            element={app(
+              <Donors />
+            )}
+          />
+          <Route
+            path="/messages"
+            element={app(
+              <Messages />
+            )}
+          />
+          <Route
+            path="/messages/:conversationId"
+            element={app(
+              <Messages />
+            )}
+          />
+          <Route
+            path="/hospitals"
+            element={app(
+              <Hospitals />
+            )}
+          />
+          {/* v4 — hospital detail (photo + description + roster) */}
+          <Route
+            path="/hospitals/:id"
+            element={app(
+              <HospitalDetail />
+            )}
+          />
+          {/* v4 — business (hospital admin) panel */}
+          <Route
+            path="/my-hospital"
+            element={app(
+              <MyHospital />
+            )}
+          />
+          {/* v6.2 — full notifications tab (business), linked from the
+              My-hospital panel's "View more" and the topbar bell */}
+          <Route
+            path="/notifications"
+            element={app(
+              <Notifications />
+            )}
+          />
+          {/* v4 — the doctor's witnessed transactions */}
+          <Route
+            path="/my-assignments"
+            element={app(
+              <MyAssignments />
+            )}
+          />
+
+          {/* Administrator only (RLS mirror: database also enforces).
+              The sidebar already shows the admin section; AdminLayout
+              keeps its sub-navigation tabs for the secondary pages. */}
+          <Route
+            path="/admin"
+            element={
+              <AdminRoute>
+                <SidebarLayout>
+                  <AdminLayout />
+                </SidebarLayout>
+              </AdminRoute>
+            }
+          >
+            <Route index element={<AdminDashboard />} />
+            <Route path="requests" element={<AdminRequests />} />
+            <Route path="records" element={<AdminRecords />} />
+            <Route path="users" element={<AdminUsers />} />
+            <Route path="hospitals" element={<AdminHospitals />} />
+            <Route path="logs" element={<AdminLogs />} />
           </Route>
         </Routes>
       </BrowserRouter>

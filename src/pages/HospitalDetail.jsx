@@ -13,6 +13,7 @@ import {
   StatusBadge
 } from '../components/ui';
 import { DOCTOR_APP_STATUS } from '../lib/constants';
+import { Building2 } from 'lucide-react';
 
 // Hospital detail (v4) — the public hospital profile page.
 //   * The hospital's PHOTO is the page background; the DESCRIPTION sits
@@ -94,7 +95,7 @@ export default function HospitalDetail() {
 
   return (
     <div className="mx-auto max-w-4xl">
-      <Link to="/hospitals" className="text-sm font-medium text-cream/65 hover:text-cream">
+      <Link to="/hospitals" className="text-sm font-medium text-muted hover:text-cream">
         &larr; Back to hospitals
       </Link>
 
@@ -113,10 +114,8 @@ export default function HospitalDetail() {
                 }}
               />
             ) : (
-              <div className="flex h-full w-full items-center justify-center bg-blood text-cream/30">
-                <svg className="h-16 w-16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 21V6.2A2.2 2.2 0 016.7 4h10.6a2.2 2.2 0 012.2 2.2V21M4.5 21h15M9.4 4V2.6M14.6 4V2.6M12 8.2v6m-3-3h6" />
-                </svg>
+              <div className="flex h-full w-full items-center justify-center bg-blood text-slate-400">
+                <Building2 className="h-16 w-16" strokeWidth={1.2} aria-hidden="true" />
               </div>
             )}
             {/* Gradient fade from the photo into the card surface, with the
@@ -144,27 +143,27 @@ export default function HospitalDetail() {
               {h.description || 'This hospital has not added a description yet.'}
             </p>
 
-            <dl className="mt-5 grid gap-x-6 gap-y-3 border-t border-cream/10 pt-5 text-sm sm:grid-cols-2">
+            <dl className="mt-5 grid gap-x-6 gap-y-3 border-t border-line pt-5 text-sm sm:grid-cols-2">
               <div>
-                <dt className="text-cream/45">Location</dt>
+                <dt className="text-muted">Location</dt>
                 <dd className="mt-0.5 font-medium text-cream">{h.address || 'Address not provided'}</dd>
               </div>
               <div>
-                <dt className="text-cream/45">Contact number</dt>
+                <dt className="text-muted">Contact number</dt>
                 <dd className="mt-0.5 font-medium text-cream">{h.contact_number || '—'}</dd>
               </div>
               <div>
-                <dt className="text-cream/45">Open requests at this hospital</dt>
+                <dt className="text-muted">Open requests at this hospital</dt>
                 <dd className="mt-0.5 font-medium text-cream">{h.stats?.open_requests ?? 0}</dd>
               </div>
               <div>
-                <dt className="text-cream/45">Completed requests</dt>
+                <dt className="text-muted">Completed requests</dt>
                 <dd className="mt-0.5 font-medium text-cream">{h.stats?.completed_requests ?? 0}</dd>
               </div>
             </dl>
 
             {/* Actions */}
-            <div className="mt-6 flex flex-wrap gap-2 border-t border-cream/10 pt-5">
+            <div className="mt-6 flex flex-wrap gap-2 border-t border-line pt-5">
               {!isMyHospital && (
                 <button
                   type="button"
@@ -188,8 +187,8 @@ export default function HospitalDetail() {
                 </button>
               )}
               {myApp && (
-                <span className="inline-flex items-center gap-2 rounded-xl border border-cream/15 px-3 py-2 text-sm">
-                  <span className="text-cream/65">Your application:</span>
+                <span className="inline-flex items-center gap-2 rounded-xl border border-line px-3 py-2 text-sm">
+                  <span className="text-muted">Your application:</span>
                   <StatusBadge status={myApp.status === 'accepted' ? 'verified' : myApp.status} label={DOCTOR_APP_STATUS[myApp.status] || myApp.status} />
                 </span>
               )}
@@ -216,18 +215,18 @@ export default function HospitalDetail() {
               <Avatar name={h.admin_name} src={h.admin_avatar_url} size="lg" />
               <div>
                 <p className="font-medium text-cream">{h.admin_name}</p>
-                <p className="text-xs text-cream/60">
+                <p className="text-xs text-muted">
                   Business administrator
                   {h.admin_is_doctor ? ' · also a licensed doctor (witnesses donations)' : ''}
                 </p>
               </div>
             </div>
           ) : (
-            <p className="mt-2 text-sm text-cream/65">
+            <p className="mt-2 text-sm text-muted">
               This hospital has no admin account linked yet — a platform administrator is onboarding it.
             </p>
           )}
-          <p className="mt-3 text-xs leading-relaxed text-cream/45">
+          <p className="mt-3 text-xs leading-relaxed text-muted">
             Messaging the hospital goes directly to this administrator.
           </p>
         </div>
@@ -236,7 +235,7 @@ export default function HospitalDetail() {
         <div className="card p-6">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="font-semibold text-cream">Doctors ({doctors.length})</p>
-            <span className="text-xs text-cream/50">
+            <span className="text-xs text-muted">
               Assigned doctors witness every donation transaction at this hospital
             </span>
           </div>
@@ -255,7 +254,7 @@ export default function HospitalDetail() {
           ) : (
             <div className="mt-4 grid gap-3 md:grid-cols-2">
               {doctors.map((doc) => (
-                <div key={doc.id} className="flex items-start gap-3 rounded-xl border border-cream/10 bg-ink p-4">
+                <div key={doc.id} className="flex items-start gap-3 rounded-xl border border-line bg-ink p-4">
                   <Avatar name={doc.full_name} src={doc.avatar_url} size="lg" />
                   <div className="min-w-0">
                     <p className="flex flex-wrap items-center gap-1.5 font-semibold text-cream">
@@ -269,11 +268,11 @@ export default function HospitalDetail() {
                     {doc.specialization && (
                       <p className="text-xs font-medium text-cream/70">{doc.specialization}</p>
                     )}
-                    <p className="mt-1 text-xs text-cream/55">
+                    <p className="mt-1 text-xs text-muted">
                       License ID:{' '}
                       <span className="font-semibold text-cream/80">{doc.doctor_license_id || '—'}</span>
                     </p>
-                    <p className="text-xs text-cream/55">
+                    <p className="text-xs text-muted">
                       Contact: <span className="font-semibold text-cream/80">{doc.contact_number || '—'}</span>
                     </p>
                   </div>
@@ -287,7 +286,7 @@ export default function HospitalDetail() {
       {/* Doctor application dialog */}
       {applyOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 sm:items-center sm:px-4"
+          className="fixed inset-0 z-50 flex items-end justify-center bg-cream/40 backdrop-blur-[2px] sm:items-center sm:px-4"
           role="dialog"
           aria-modal="true"
         >
@@ -298,7 +297,7 @@ export default function HospitalDetail() {
               {h.admin_name ? ` (${h.admin_name})` : ''}. These details from your profile are sent
               with it:
             </p>
-            <div className="mt-3 space-y-1 rounded-xl border border-cream/10 bg-ink p-3 text-sm">
+            <div className="mt-3 space-y-1 rounded-xl border border-line bg-ink p-3 text-sm">
               <p className="text-cream/80">
                 Name: <span className="font-semibold">{user.profile.full_name}</span>
               </p>
@@ -329,7 +328,7 @@ export default function HospitalDetail() {
               />
             </div>
             {applyError && (
-              <p className="mt-3 text-sm font-medium text-red-400" role="alert">
+              <p className="mt-3 text-sm font-medium text-red-600" role="alert">
                 {applyError}
               </p>
             )}
@@ -347,7 +346,7 @@ export default function HospitalDetail() {
               </button>
             </div>
             {(!user.profile.doctor_license_id || !user.profile.contact_number) && (
-              <p className="mt-3 text-xs text-amber-300">
+              <p className="mt-3 text-xs text-amber-700">
                 Add your license ID and contact number in{' '}
                 <Link to="/profile" className="font-semibold underline">
                   your profile

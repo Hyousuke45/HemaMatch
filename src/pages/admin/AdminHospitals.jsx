@@ -111,7 +111,7 @@ export default function AdminHospitals() {
 
       {/* Hospital list */}
       <div>
-        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-cream/45">
+        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted">
           All hospital records
         </h2>
         {loading && <InlineLoader label="Loading hospitals…" />}
@@ -124,7 +124,7 @@ export default function AdminHospitals() {
           <div className="card overflow-x-auto">
             <table className="w-full min-w-[960px] text-sm">
               <thead>
-                <tr className="border-b border-cream/15 text-left text-xs uppercase tracking-wide text-cream/45">
+                <tr className="border-b border-line text-left text-xs uppercase tracking-wide text-muted">
                   <th className="px-4 py-3">Hospital</th>
                   <th className="px-4 py-3">Business admin</th>
                   <th className="px-4 py-3">Region</th>
@@ -136,7 +136,7 @@ export default function AdminHospitals() {
               </thead>
               <tbody className="divide-y divide-cream/10">
                 {hospitals.map((h) => (
-                  <tr key={h.id} className="hover:bg-cream/5">
+                  <tr key={h.id} className="hover:bg-pale">
                     <td className="px-4 py-3">
                       <a
                         href={`/hospitals/${h.id}`}
@@ -146,27 +146,27 @@ export default function AdminHospitals() {
                       >
                         {h.name}
                       </a>
-                      <p className="text-xs text-cream/45">{h.city || '—'}{h.contact_number ? ` · ${h.contact_number}` : ''}</p>
-                      <p className="text-xs text-cream/45">{h.doctor_count ?? 0} doctor(s) on roster</p>
+                      <p className="text-xs text-muted">{h.city || '—'}{h.contact_number ? ` · ${h.contact_number}` : ''}</p>
+                      <p className="text-xs text-muted">{h.doctor_count ?? 0} doctor(s) on roster</p>
                     </td>
                     <td className="px-4 py-3">
                       {h.admin_name ? (
                         <span className="flex flex-col">
                           <span className="font-medium text-cream">{h.admin_name}</span>
-                          <span className="text-xs text-cream/45">
+                          <span className="text-xs text-muted">
                             {h.admin_is_doctor ? 'admin · also a doctor' : 'business account'}
                           </span>
                         </span>
                       ) : (
-                        <span className="text-xs text-cream/40">no admin linked</span>
+                        <span className="text-xs text-slate-400">no admin linked</span>
                       )}
                     </td>
                     <td className="px-4 py-3 text-cream/75">{h.region}</td>
                     <td className="px-4 py-3">
                       <StatusBadge status={h.status} />
                     </td>
-                    <td className="max-w-[220px] px-4 py-3 text-xs text-cream/65">{h.notes || '—'}</td>
-                    <td className="px-4 py-3 text-cream/65">{formatDate(h.created_at)}</td>
+                    <td className="max-w-[220px] px-4 py-3 text-xs text-muted">{h.notes || '—'}</td>
+                    <td className="px-4 py-3 text-muted">{formatDate(h.created_at)}</td>
                     <td className="px-4 py-3">
                       <div className="flex flex-wrap gap-1.5">
                         {h.status !== 'verified' && (

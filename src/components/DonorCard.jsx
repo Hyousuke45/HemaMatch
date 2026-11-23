@@ -1,5 +1,6 @@
 import { Avatar, BloodTypeBadge } from './ui';
 import { formatDate } from '../lib/utils';
+import { MapPin, Calendar, Check, MessageCircle, User as UserIcon, BadgeCheck } from 'lucide-react';
 
 // A potential donor card — used in TWO places:
 //   1. Matching results on the request detail page (has onViewProfile:
@@ -16,12 +17,16 @@ export default function DonorCard({ donor, onMessage, onViewProfile, messageLabe
         <Avatar name={donor.full_name} src={donor.avatar_url} size="lg" />
         <div className="min-w-0">
           <p className="truncate font-semibold text-cream">{donor.full_name}</p>
-          <p className="text-xs text-cream/65">
+          <p className="flex items-center gap-1 text-xs text-muted">
+            <MapPin className="h-3.5 w-3.5 shrink-0" strokeWidth={1.9} aria-hidden="true" />
             {donor.city ? `${donor.city} · ` : ''}
             {donor.region || 'Region not set'}
           </p>
           {donor.member_since && (
-            <p className="mt-0.5 text-[11px] text-cream/40">Member since {formatDate(donor.member_since)}</p>
+            <p className="mt-0.5 flex items-center gap-1 text-[11px] text-muted">
+              <Calendar className="h-3 w-3 shrink-0" strokeWidth={1.9} aria-hidden="true" />
+              Member since {formatDate(donor.member_since)}
+            </p>
           )}
         </div>
         <div className="ml-auto">
@@ -30,32 +35,35 @@ export default function DonorCard({ donor, onMessage, onViewProfile, messageLabe
       </div>
 
       {donor.note && (
-        <p className="mt-3 rounded-xl border border-cream/10 bg-ink p-3 text-sm leading-relaxed text-cream/80">
+        <p className="mt-3 rounded-[10px] border border-line bg-pale p-3 text-sm leading-relaxed text-cream/80">
           {donor.note}
         </p>
       )}
 
-      <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-cream/10 pt-3">
-        <span className="flex items-center gap-1.5 text-xs font-medium text-emerald-300">
-          <span className="h-2 w-2 rounded-full bg-emerald-400" />
+      <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-line pt-3">
+        <span className="flex items-center gap-1.5 text-xs font-medium text-emerald-700">
+          <Check className="h-3.5 w-3.5" strokeWidth={2.2} aria-hidden="true" />
           Available to donate
         </span>
         {donor.same_region && (
-          <span className="rounded-full bg-gold/10 px-2 py-0.5 text-xs font-semibold text-gold-light">
+          <span className="inline-flex items-center gap-1 rounded-full bg-gold/10 px-2 py-0.5 text-xs font-semibold text-gold">
+            <MapPin className="h-3 w-3" strokeWidth={2.2} aria-hidden="true" />
             Same region
           </span>
         )}
         {donor.preferred_type && (
-          <span className="rounded-full bg-gold/15 px-2 py-0.5 text-xs font-semibold text-gold-light">
-            Preferred type
+          <span className="inline-flex items-center gap-1 rounded-full bg-blood px-2 py-0.5 text-xs font-semibold text-gold">
+            <BadgeCheck className="h-3 w-3" strokeWidth={2.2} aria-hidden="true" />
+            Compatible type
           </span>
         )}
       </div>
 
       {(onMessage || onViewProfile) && (
-        <div className={`mt-3 flex gap-2 ${onViewProfile ? '' : ''}`}>
+        <div className="mt-3 flex gap-2">
           {onViewProfile && (
             <button type="button" className="btn-secondary flex-1" onClick={() => onViewProfile(donor)}>
+              <UserIcon className="h-4 w-4" strokeWidth={1.9} aria-hidden="true" />
               View profile
             </button>
           )}
@@ -65,6 +73,7 @@ export default function DonorCard({ donor, onMessage, onViewProfile, messageLabe
               className={onViewProfile ? 'btn-primary flex-1' : 'btn-primary w-full'}
               onClick={() => onMessage(donor)}
             >
+              <MessageCircle className="h-4 w-4" strokeWidth={1.9} aria-hidden="true" />
               {messageLabel}
             </button>
           )}

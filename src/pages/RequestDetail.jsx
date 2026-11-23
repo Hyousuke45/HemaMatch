@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import useAsync from '../hooks/useAsync';
 import dataService from '../lib/dataService';
@@ -25,6 +25,11 @@ export default function RequestDetail() {
   const { id } = useParams();
   const { user, isAdmin, isDoctor, isBusiness } = useAuth();
   const navigate = useNavigate();
+  // v6.2: pages that deep-link here (hospital panel, notifications tab)
+  // pass state.from so the back link returns the user to THEM — not
+  // blindly to /requests.
+  const { state } = useLocation();
+  const from = state?.from ?? null;
 
   const { data: request, loading, error, reload } = useAsync(() => dataService.getRequest(id), [id]);
   const { data: matches, loading: matchesLoading, error: matchesError, reload: reloadMatches } = useAsync(
@@ -185,8 +190,11 @@ export default function RequestDetail() {
 
   return (
     <div className="mx-auto max-w-3xl">
-      <Link to="/requests" className="text-sm font-medium text-cream/65 hover:text-cream">
-        &larr; Back to requests
+      <Link
+        to={from?.path || '/requests'}
+        className="text-sm font-medium text-muted hover:text-cream"
+      >
+        &larr; {from ? `Back to ${from.label}` : 'Back to requests'}
       </Link>
 
       <div className="mt-4 flex flex-col gap-6">
@@ -200,7 +208,7 @@ export default function RequestDetail() {
                   {request.units_needed} {request.units_needed === 1 ? 'unit' : 'units'} of{' '}
                   {request.blood_type} blood
                 </h1>
-                <p className="text-sm text-cream/65">
+                <p className="text-sm text-muted">
                   {request.region} · created {formatDate(request.created_at)}
                 </p>
               </div>
@@ -211,9 +219,9 @@ export default function RequestDetail() {
             </div>
           </div>
 
-          <dl className="mt-5 grid gap-x-6 gap-y-3 border-t border-cream/10 pt-5 text-sm sm:grid-cols-2">
+          <dl className="mt-5 grid gap-x-6 gap-y-3 border-t border-line pt-5 text-sm sm:grid-cols-2">
             <div>
-              <dt className="text-cream/45">Requester</dt>
+              <dt className="text-muted">Requester</dt>
               <dd className="mt-0.5 flex items-center gap-2 font-medium text-cream">
                 <Avatar name={request.requester_name} src={request.requester_avatar_url} size="sm" />
                 {request.requester_name}
@@ -228,11 +236,11 @@ export default function RequestDetail() {
               </dd>
             </div>
             <div>
-              <dt className="text-cream/45">Urgency</dt>
+              <dt className="text-muted">Urgency</dt>
               <dd className="mt-0.5 font-medium text-cream">{URGENCY[request.urgency]}</dd>
             </div>
             <div>
-              <dt className="text-cream/45">Hospital</dt>
+              <dt className="text-muted">Hospital</dt>
               <dd className="mt-0.5 font-medium text-cream">
                 {request.hospital_id ? (
                   <span className="flex items-center gap-1.5">
@@ -249,11 +257,11 @@ export default function RequestDetail() {
               </dd>
             </div>
             <div>
-              <dt className="text-cream/45">Needed by</dt>
+              <dt className="text-muted">Needed by</dt>
               <dd className="mt-0.5 font-medium text-cream">{formatDate(request.needed_by)}</dd>
             </div>
             <div className="sm:col-span-2">
-              <dt className="text-cream/45">Compatible donor types (ABO/Rh)</dt>
+              <dt className="text-muted">Compatible donor types (ABO/Rh)</dt>
               <dd className="mt-0.5 font-medium text-cream">
                 {donorTypesFor(request.blood_type).join(', ')}
                 {preferredTypes.length > 0 && (
@@ -264,7 +272,7 @@ export default function RequestDetail() {
               </dd>
             </div>
             <div className="sm:col-span-2">
-              <dt className="text-cream/45">Details</dt>
+              <dt className="text-muted">Details</dt>
               <dd className="mt-0.5 leading-relaxed text-cream/85">
                 {request.description || 'No additional details provided.'}
               </dd>
@@ -272,7 +280,7 @@ export default function RequestDetail() {
           </dl>
 
           {/* Actions */}
-          <div className="mt-6 flex flex-wrap gap-2 border-t border-cream/10 pt-5">
+          <div className="mt-6 flex flex-wrap gap-2 border-t border-line pt-5">
             {isOwner && request.status === 'pending' && (
               <>
                 <Link to={`/requests/${id}/edit`} className="btn-secondary">
@@ -310,8 +318,8 @@ export default function RequestDetail() {
 
             {/* v4: the hospital's business admin / assigned doctor controls */}
             {canManage && !isOwner && request.status !== 'completed' && request.status !== 'cancelled' && (
-              <div className="flex w-full flex-wrap items-center gap-2 rounded-lg border border-cream/10 bg-ink p-3">
-                <span className="text-xs font-semibold uppercase tracking-wide text-cream/45">
+              <div className="flex w-full flex-wrap items-center gap-2 rounded-lg border border-line bg-ink p-3">
+                <span className="text-xs font-semibold uppercase tracking-wide text-muted">
                   {isAdmin ? 'Admin controls' : isBusiness ? 'Hospital controls' : 'Assigned doctor controls'}
                 </span>
                 {request.status === 'pending' && (
@@ -359,27 +367,27 @@ export default function RequestDetail() {
                 )}
               </div>
             </div>
-            <div className="mt-4 rounded-xl border border-cream/10 bg-ink p-4">
+            <div className="mt-4 rounded-xl border border-line bg-ink p-4">
               {myAcceptance.doctor_name ? (
                 <div className="flex items-start gap-3">
                   <Avatar name={myAcceptance.doctor_name} size="lg" />
                   <div>
                     <p className="font-semibold text-cream">
                       {myAcceptance.doctor_name}
-                      <span className="ml-2 text-xs font-medium text-cream/55">
+                      <span className="ml-2 text-xs font-medium text-muted">
                         Assigned doctor · witness for this transaction
                       </span>
                     </p>
                     {myAcceptance.doctor_specialization && (
-                      <p className="text-xs text-cream/65">{myAcceptance.doctor_specialization}</p>
+                      <p className="text-xs text-muted">{myAcceptance.doctor_specialization}</p>
                     )}
                     {myAcceptance.doctor_hospital_name && (
-                      <p className="mt-0.5 text-xs text-cream/55">{myAcceptance.doctor_hospital_name}</p>
+                      <p className="mt-0.5 text-xs text-muted">{myAcceptance.doctor_hospital_name}</p>
                     )}
                   </div>
                 </div>
               ) : (
-                <p className="text-sm text-cream/65">
+                <p className="text-sm text-muted">
                   No doctor is assigned — this request has no hospital with a doctor roster, so no
                   witness could be assigned. The hospital will coordinate directly.
                 </p>
@@ -393,11 +401,11 @@ export default function RequestDetail() {
         {acceptances.length > 0 && (isOwner || isAdmin || canManage) && (
           <div className="card p-6">
             <p className="font-semibold text-cream">
-              Donors &amp; assigned doctors {isOwner && <span className="text-sm font-normal text-cream/55">(visible to you as the requester)</span>}
+              Donors &amp; assigned doctors {isOwner && <span className="text-sm font-normal text-muted">(visible to you as the requester)</span>}
             </p>
             <div className="mt-4 space-y-3">
               {acceptances.map((a) => (
-                <div key={a.id} className="flex flex-wrap items-center gap-3 rounded-xl border border-cream/10 bg-ink p-4">
+                <div key={a.id} className="flex flex-wrap items-center gap-3 rounded-xl border border-line bg-ink p-4">
                   <Avatar name={a.donor_name} src={a.donor_avatar_url} size="lg" />
                   <div className="min-w-0 flex-1">
                     <p className="flex flex-wrap items-center gap-2 font-semibold text-cream">
@@ -405,7 +413,7 @@ export default function RequestDetail() {
                       {a.donor_blood_type && <BloodTypeBadge type={a.donor_blood_type} />}
                       <StatusBadge status={a.status === 'completed' ? 'completed' : 'accepted'} label={a.status === 'completed' ? 'Completed' : 'Accepted'} />
                     </p>
-                    <p className="mt-1 text-xs text-cream/60">
+                    <p className="mt-1 text-xs text-muted">
                       {a.doctor_name ? (
                         <>
                           Assigned doctor:{' '}
@@ -442,13 +450,13 @@ export default function RequestDetail() {
             <p className="mt-3 text-sm leading-relaxed text-cream/75">
               {request.record.reason || 'No reason recorded.'}
             </p>
-            <p className="mt-3 text-xs text-cream/45">
+            <p className="mt-3 text-xs text-muted">
               {request.record.donor_name ? `Donor: ${request.record.donor_name} · ` : ''}
               {request.record.doctor_name ? `Witnessed by: ${request.record.doctor_name} · ` : ''}
               Recorded by {request.record.recorded_by_name} · {formatDateTime(request.record.created_at)}
             </p>
             {request.record.outcome === 'failed' && (
-              <p className="mt-2 text-xs text-cream/65">
+              <p className="mt-2 text-xs text-muted">
                 The request remains open so other donors can still help.
               </p>
             )}
@@ -481,7 +489,7 @@ export default function RequestDetail() {
             {!matchesLoading && !matchesError && matches && matches.donors.length === 0 && (
               <div className="card px-6 py-10 text-center">
                 <p className="font-semibold text-cream">No available donors match yet</p>
-                <p className="mx-auto mt-1 max-w-md text-sm text-cream/65">
+                <p className="mx-auto mt-1 max-w-md text-sm text-muted">
                   Donors must be ABO/Rh-compatible, currently available, and have a completed
                   profile. Check back later — availability changes.
                 </p>
@@ -490,7 +498,7 @@ export default function RequestDetail() {
 
             {!matchesLoading && !matchesError && matches && matches.donors.length > 0 && (
               <>
-                <p className="mb-3 text-sm text-cream/65">
+                <p className="mb-3 text-sm text-muted">
                   Compatible donor blood types:{' '}
                   <span className="font-semibold text-cream">
                     {matches.compatible_types.join(', ')}
@@ -518,7 +526,7 @@ export default function RequestDetail() {
       {/* v4 — donor accept dialog: pick a doctor from the request's hospital */}
       {acceptOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 sm:items-center sm:px-4"
+          className="fixed inset-0 z-50 flex items-end justify-center bg-cream/40 backdrop-blur-[2px] sm:items-center sm:px-4"
           role="dialog"
           aria-modal="true"
         >
@@ -552,13 +560,13 @@ export default function RequestDetail() {
                       </option>
                     ))}
                   </select>
-                  <p className="mt-1 text-xs text-cream/45">
+                  <p className="mt-1 text-xs text-muted">
                     Doctors listed here belong to {request.hospital_name}. You can change the
                     assigned doctor later while your acceptance is active.
                   </p>
                 </>
               ) : (
-                <p className="rounded-xl border border-cream/10 bg-ink p-3 text-sm text-cream/65">
+                <p className="rounded-xl border border-line bg-ink p-3 text-sm text-muted">
                   {request.hospital_name
                     ? `${request.hospital_name} has no verified doctors yet — no doctor can be assigned. The hospital admin will coordinate directly.`
                     : 'This request has no hospital, so no doctor can be assigned. The requester will coordinate directly.'}
@@ -567,7 +575,7 @@ export default function RequestDetail() {
             </div>
 
             {acceptError && (
-              <p className="mt-3 text-sm font-medium text-red-400" role="alert">
+              <p className="mt-3 text-sm font-medium text-red-600" role="alert">
                 {acceptError}
               </p>
             )}
@@ -587,7 +595,7 @@ export default function RequestDetail() {
       {/* v4 — change assigned doctor dialog (donor's active acceptance) */}
       {doctorEditOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 sm:items-center sm:px-4"
+          className="fixed inset-0 z-50 flex items-end justify-center bg-cream/40 backdrop-blur-[2px] sm:items-center sm:px-4"
           role="dialog"
           aria-modal="true"
         >
@@ -616,7 +624,7 @@ export default function RequestDetail() {
               </select>
             </div>
             {acceptError && (
-              <p className="mt-3 text-sm font-medium text-red-400" role="alert">
+              <p className="mt-3 text-sm font-medium text-red-600" role="alert">
                 {acceptError}
               </p>
             )}
