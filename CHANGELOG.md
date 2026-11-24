@@ -1,6 +1,7 @@
 # HemaMatch — Change Report
 
-**v6.11 — November 24, 2026** (latest) · fix: real PNG app icons wired in
+**v6.12 — November 24, 2026** (latest) · feat: browse hospitals & blood requests without an account
+**v6.11 — November 24, 2026** · fix: real PNG app icons wired in
 **v6.10 — November 24, 2026** · feat: notifications for every role
 **v6.9 — November 24, 2026** · fix: demo doctor/business logins (GoTrue 500 + instance_id bug)
 **v6.8 — November 24, 2026** · all demo data scoped to Valencia City, Bukidnon (Region X) — real Valencia hospitals
@@ -31,6 +32,90 @@
 
 
 
+
+
+---
+
+# HemaMatch — Change Report (v6.12)
+
+**Date:** November 24, 2026 · **Scope:** public (signed-out) browsing of
+hospitals and blood requests + "Browse requests" public navigation.
+
+## 1. What changed
+
+**The public header now carries three links** — Home, Hospitals and the
+new **Browse requests** — and both sections open WITHOUT an account:
+
+- `/hospitals` — browse and search every VERIFIED hospital, full cards
+  with photo, description, city/region and doctor count.
+- `/hospitals/:id` — the complete hospital profile (description, address,
+  contact, open/completed request counts, admin card, doctor roster with
+  license IDs and contact numbers) — read-only, with
+  "Register to message this hospital / Sign in" replacing the signed-in
+  action buttons.
+- `/requests` — browse actionable requests (pending / accepted /
+  completed) with the same search + filters; requester names are masked to
+  "First L." for privacy (e.g. "Paolo V.").
+- `/requests/:id` — full read-only request detail; acceptances, the
+  donation record, matches and profile sheets stay invisible; the
+  actions row becomes "Register to donate for this request / Sign in".
+
+**One URL, two shells (DualShell in App.jsx):** signed-out visitors get
+the marketing shell (header + footer); signed-in users get the exact
+previous experience — sidebar app shell, all action buttons, full names,
+matches and the New-request CTA. Signed-in behaviour is unchanged.
+
+## 2. How (technical)
+
+- `mockBackend.js` + `supabaseBackend.js` grow four public functions:
+  `listHospitalsPublic`, `getHospitalPublic`, `listRequestsPublic`,
+  `getRequestPublic` — same row shapes as their signed-in versions, minus
+  viewer-private fields (`my_application`, `my_acceptance`,
+  `acceptances`, `record`) and with masked requester names.
+- `supabase/migrate-v6.12-public-browsing.sql` (also appended to
+  `schema.sql` for fresh installs): anon + authenticated SELECT policies
+  for verified hospitals, actionable requests and accepted roster rows;
+  `get_hospital_detail_public(uuid)` SECURITY DEFINER RPC for the public
+  hospital page; `get_public_profile_min(uuid[])` returning first name +
+  last initial only. **Run the migration once in the Supabase SQL editor
+  when deploying v6.12** (mock mode needs nothing).
+- Pages (`Hospitals`, `HospitalDetail`, `Requests`, `RequestDetail`) pick
+  the public data source when `useAuth().user` is null and hide actions.
+- `Layout.jsx` renders passed children (public shell pages) as well as
+  its Outlet (nested routes).
+
+## 3. What deliberately stays private
+
+No anon access to profiles (donor contact details, blood types, emails),
+donor acceptances, donation records, conversations or offers. Only
+VERIFIED hospitals and actionable requests are public; unverified
+hospitals and cancelled requests remain invisible to signed-out visitors
+(and to regular signed-in users alike).
+
+## 4. Verification
+
+- `bun run build` passes.
+- Headless-browser walkthrough SIGNED OUT: hospital list renders
+  (3 verified, full descriptions), hospital detail `h-004` renders
+  (address, contact, stats, admin, roster, register CTAs), requests list
+  renders (6 actionable, masked names), request detail `r-006` renders
+  read-only with register CTAs.
+- Headless-browser walkthrough SIGNED IN (Maria, donor): /requests and
+  /hospitals/:id still render inside the sidebar app shell with
+  "+ New request", "Accept as donor", "Message requester", "Message
+  hospital" — the signed-in experience is byte-identical.
+- Backend contract test (18 checks, all pass): public functions return
+  verified-only hospitals, actionable-only requests, masked names, no
+  private fields; the signed-in `listRequests` still throws without a
+  session.
+- Migration SQL statically validated: 27 statements, balanced
+  dollar-quotes, all 8 required statements present.
+
+## 5. Deploying
+
+1. Frontend: rebuild + redeploy (no `.env` changes).
+2. Supabase: run `supabase/migrate-v6.12-public-browsing.sql` in the SQL
+   editor (skip in mock mode).
 
 ---
 

@@ -939,10 +939,148 @@ async function listHospitals(filters = {}) {
   return joined;
 }
 
+// ============================================================
+// v6.12 — PUBLIC (signed-out) READ ACCESS
+// Same contracts as the signed-in versions, but no session required and
+// no viewer-private fields. The v6.12 SQL migration adds the anon RLS
+// policies these queries rely on (hospitals / donation_requests /
+// hospital_doctors anon-select policies + the get_hospital_detail_public
+// and get_public_profile_min RPCs). Until that migration is run, these
+// fail with a clear error rather than leaking anything.
+// ============================================================
+
+async function listHospitalsPublic(filters = {}) {
+  const { data, error } = await sb()
+    .from('hospitals')
+    .select('id, name, description, region, city, address, contact_number, photo_url, status, admin_id')
+    .eq('status', 'verified')
+    .order('name', { ascending: true });
+  if (error) throw fail(error, 'Could not load hospitals.');
+
+  // doctor_count from the accepted roster (anon-readable per v6.12 RLS)
+  const { data: roster, error: rosterError } = await sb()
+    .from('hospital_doctors')
+    .select('hospital_id, doctor_id')
+    .eq('status', 'accepted');
+  const acceptedByHospital = new Map();
+  if (!rosterError) {
+    for (const row of roster || []) {
+      if (!acceptedByHospital.has(row.hospital_id)) acceptedByHospital.set(row.hospital_id, new Set());
+      acceptedByHospital.get(row.hospital_id).add(row.doctor_id);
+    }
+  }
+
+  let joined = (data || []).map((h) => ({
+    ...h,
+    admin_name: null, // anon cannot read profiles — public list omits admin identity
+    admin_avatar_url: null,
+    admin_is_doctor: false,
+    doctor_count: acceptedByHospital.get(h.id)?.size ?? 0,
+    pending_applications: null
+  }));
+
+  if (filters.search) {
+    const q = String(filters.search).toLowerCase();
+    joined = joined.filter(
+      (h) =>
+        h.name.toLowerCase().includes(q) ||
+        (h.city || '').toLowerCase().includes(q) ||
+        h.region.toLowerCase().includes(q) ||
+        (h.description || '').toLowerCase().includes(q)
+    );
+  }
+  if (filters.region) joined = joined.filter((h) => h.region === filters.region);
+  return joined;
+}
+
+async function getHospitalPublic(id) {
+  const { data, error } = await sb().rpc('get_hospital_detail_public', { p_hospital_id: id });
+  if (error) throw fail(error, 'Could not load the hospital.');
+  if (!data) throw new Error('Hospital not found.');
+  return { ...data, my_application: null, is_my_hospital: false };
+}
+
+async function listRequestsPublic(filters = {}) {
+  let query = sb()
+    .from('donation_requests')
+    .select(REQUEST_SELECT)
+    .in('status', ['pending', 'accepted', 'completed']);
+  if (filters.blood_type) query = query.eq('blood_type', filters.blood_type);
+  if (filters.region) query = query.eq('region', filters.region);
+
+  const { data, error } = await query.order('created_at', { ascending: false });
+  if (error) throw fail(error, 'Could not load requests.');
+
+  // The profiles join needs authenticated access anon lacks, so requester
+  // names come back null for anon — resolve masked names ("First L.")
+  // for those rows in ONE batch RPC call.
+  const nameById = new Map();
+  const missingIds = [...new Set((data || []).filter((r) => !r.requester).map((r) => r.requester_id))];
+  if (missingIds.length > 0) {
+    const { data: mins, error: minErr } = await sb().rpc('get_public_profile_min', {
+      p_user_ids: missingIds
+    });
+    if (!minErr) for (const m of mins || []) nameById.set(m.id, m.display_name);
+  }
+
+  let rows = (data || []).map((r) => {
+    const joined = mapRequest(r);
+    return {
+      ...joined,
+      requester_name:
+        joined.requester_name ||
+        nameById.get(r.requester_id) ||
+        'A HemaMatch member',
+      requester_avatar_url: null
+    };
+  });
+
+  if (filters.status) rows = rows.filter((r) => r.status === filters.status);
+  if (filters.search) {
+    const q = String(filters.search).toLowerCase();
+    rows = rows.filter(
+      (r) =>
+        (r.requester_name || '').toLowerCase().includes(q) ||
+        (r.description || '').toLowerCase().includes(q) ||
+        (r.blood_type || '').toLowerCase().includes(q) ||
+        (r.region || '').toLowerCase().includes(q) ||
+        (r.hospital_name || '').toLowerCase().includes(q)
+    );
+  }
+  return rows;
+}
+
+async function getRequestPublic(id) {
+  const { data, error } = await sb()
+    .from('donation_requests')
+    .select(REQUEST_SELECT)
+    .eq('id', id)
+    .in('status', ['pending', 'accepted', 'completed'])
+    .maybeSingle();
+  if (error) throw fail(error, 'Could not load the request.');
+  if (!data) throw new Error('Request not found or not publicly visible.');
+
+  const joined = mapRequest(data);
+  let displayName = joined.requester_name;
+  if (!displayName) {
+    const { data: min } = await sb().rpc('get_public_profile_min', { p_user_ids: [data.requester_id] });
+    displayName = Array.isArray(min) ? min[0]?.display_name : min?.display_name;
+  }
+  return {
+    ...joined,
+    requester_name: displayName || 'A HemaMatch member',
+    requester_avatar_url: null,
+    compatible_types: donorTypesFor(joined.blood_type),
+    hospital_doctors: [],
+    acceptances: [],
+    my_acceptance: null,
+    record: null
+  };
+}
+
 // Full hospital detail — description, location, admin and the doctor
 // roster with license IDs and contact numbers (via RPC, RLS-safe).
-async function getHospital(id) {
-  const uid = await requireUid();
+async function getHospital(id) {  const uid = await requireUid();
   const { data, error } = await sb().rpc('get_hospital_detail', { p_hospital_id: id });
   if (error) throw fail(error, 'Could not load the hospital.');
   if (!data) throw new Error('Hospital not found.');
@@ -1406,5 +1544,11 @@ export default {
   listLogs,
 
   // public
-  getPublicStats
+  getPublicStats,
+
+  // v6.12 — public (signed-out) browsing
+  listHospitalsPublic,
+  getHospitalPublic,
+  listRequestsPublic,
+  getRequestPublic
 };

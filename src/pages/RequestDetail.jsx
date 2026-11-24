@@ -31,14 +31,19 @@ export default function RequestDetail() {
   const { state } = useLocation();
   const from = state?.from ?? null;
 
-  const { data: request, loading, error, reload } = useAsync(() => dataService.getRequest(id), [id]);
+  // v6.12: signed-out visitors get the read-only public variant (no
+  // acceptances, no record, masked requester name).
+  const { data: request, loading, error, reload } = useAsync(
+    () => (user ? dataService.getRequest(id) : dataService.getRequestPublic(id)),
+    [id, Boolean(user)]
+  );
   const { data: matches, loading: matchesLoading, error: matchesError, reload: reloadMatches } = useAsync(
     async () => {
-      if (!request) return null;
+      if (!request || !user) return null;
       if (request.requester_id !== user.id && !isAdmin) return null; // matches are requester/admin-only
       return dataService.getMatches(id);
     },
-    [request?.id]
+    [request?.id, Boolean(user)]
   );
 
   const [confirm, setConfirm] = useState(null); // { kind, title, message, action, requireReason, danger }
@@ -54,7 +59,7 @@ export default function RequestDetail() {
   const [doctorEditOpen, setDoctorEditOpen] = useState(null); // acceptance being re-assigned
   const [newDoctor, setNewDoctor] = useState('');
 
-  const isOwner = request && request.requester_id === user.id;
+  const isOwner = Boolean(user) && request && request.requester_id === user.id;
   // v4.1: preferred donor types is now a multi-select array.
   const preferredTypes = Array.isArray(request?.preferred_donor_types)
     ? request.preferred_donor_types
@@ -63,6 +68,7 @@ export default function RequestDetail() {
   // hospital's business admin, and the assigned doctor (the witness).
   // Every action below is re-checked by the backend.
   const canManage =
+    Boolean(user) &&
     request &&
     (isAdmin ||
       isOwner ||
@@ -234,13 +240,15 @@ export default function RequestDetail() {
                 <Avatar name={request.requester_name} src={request.requester_avatar_url} size="sm" />
                 {request.requester_name}
                 {isOwner && <span className="text-xs font-semibold text-gold">(you)</span>}
-                <button
-                  type="button"
-                  className="text-xs font-semibold text-gold hover:underline"
-                  onClick={() => setViewProfileId(request.requester_id)}
-                >
-                  View profile
-                </button>
+                {user && (
+                  <button
+                    type="button"
+                    className="text-xs font-semibold text-gold hover:underline"
+                    onClick={() => setViewProfileId(request.requester_id)}
+                  >
+                    View profile
+                  </button>
+                )}
               </dd>
             </div>
             <div>
@@ -296,6 +304,18 @@ export default function RequestDetail() {
 
           {/* Actions */}
           <div className="mt-6 flex flex-wrap gap-2 border-t border-line pt-5">
+            {/* v6.12: signed-out visitors cannot act — offer the account
+                entry points instead of dead buttons. */}
+            {!user && (
+              <>
+                <Link to="/register" className="btn-primary">
+                  Register to donate for this request
+                </Link>
+                <Link to="/login" className="btn-secondary">
+                  Sign in
+                </Link>
+              </>
+            )}
             {isOwner && request.status === 'pending' && (
               <>
                 <Link to={`/requests/${id}/edit`} className="btn-secondary">
@@ -313,14 +333,14 @@ export default function RequestDetail() {
             )}
 
             {/* v4: any donor/recipient (i.e. every account type) can accept */}
-            {!isOwner && openForDonors && !alreadyAccepted && (
+            {user && !isOwner && openForDonors && !alreadyAccepted && (
               <button type="button" className="btn-primary" onClick={openAcceptFlow}>
                 Accept as donor
               </button>
             )}
 
             {/* Non-owner: reach the requester */}
-            {!isOwner && (
+            {user && !isOwner && (
               <button
                 type="button"
                 className="btn-secondary"

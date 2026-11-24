@@ -2056,6 +2056,122 @@ async function getPublicStats() {
   };
 }
 
+// ============================================================
+// v6.12 — PUBLIC (signed-out) READ ACCESS
+// The platform can be explored without an account: anyone can browse
+// VERIFIED hospitals (with full detail pages) and open blood requests.
+// These mirror listHospitals/getHospital/listRequests/getRequest but:
+//   * never require a session,
+//   * only ever return VERIFIED hospitals / actionable requests,
+//   * strip viewer-private fields (my_application, my_acceptance,
+//     acceptances, record) and MASK requester names ("First L.") —
+//     matching what the Supabase anon policies expose. The DB/RLS layer
+//     is the real gatekeeper in Supabase mode; this mock mirrors that
+//     policy in JS.
+// ============================================================
+
+// "Fatima Al-Sayed" -> "Fatima A."; single names pass through.
+function maskFullName(name) {
+  const parts = String(name || '').trim().split(/\s+/);
+  if (parts.length < 2) return parts[0] || 'A HemaMatch member';
+  return `${parts[0]} ${parts[parts.length - 1][0]}.`;
+}
+
+function joinRequestPublic(r) {
+  const joined = joinRequest(r);
+  return {
+    ...joined,
+    requester_name: maskFullName(joined.requester_name),
+    requester_avatar_url: null
+  };
+}
+
+async function listHospitalsPublic(filters = {}) {
+  await delay();
+  let joined = getDb()
+    .hospitals.filter((h) => h.status === 'verified')
+    .map((h) => joinHospital(h));
+
+  if (filters.search) {
+    const q = String(filters.search).toLowerCase();
+    joined = joined.filter(
+      (h) =>
+        h.name.toLowerCase().includes(q) ||
+        (h.city || '').toLowerCase().includes(q) ||
+        h.region.toLowerCase().includes(q) ||
+        (h.description || '').toLowerCase().includes(q)
+    );
+  }
+  if (filters.region) joined = joined.filter((h) => h.region === filters.region);
+  joined.sort((a, b) => a.name.localeCompare(b.name));
+  return joined;
+}
+
+async function getHospitalPublic(id) {
+  await delay();
+  const d = getDb();
+  const h = findHospital(id);
+  if (!h) throw new Error('Hospital not found.');
+  if (h.status !== 'verified') throw new Error('This hospital is not verified yet.');
+
+  const openRequests = d.requests.filter(
+    (r) => r.hospital_id === id && ['pending', 'accepted'].includes(r.status)
+  ).length;
+  const completed = d.requests.filter((r) => r.hospital_id === id && r.status === 'completed').length;
+
+  return {
+    ...joinHospital(h),
+    doctors: hospitalDoctorSet(id),
+    stats: { open_requests: openRequests, completed_requests: completed },
+    my_application: null,
+    is_my_hospital: false
+  };
+}
+
+async function listRequestsPublic(filters = {}) {
+  await delay();
+  const d = getDb();
+  let rows = d.requests
+    // only actionable requests are worth showing prospective donors
+    .filter((r) => ['pending', 'accepted', 'completed'].includes(r.status))
+    .map(joinRequestPublic);
+
+  if (filters.status) rows = rows.filter((r) => r.status === filters.status);
+  if (filters.blood_type) rows = rows.filter((r) => r.blood_type === filters.blood_type);
+  if (filters.region) rows = rows.filter((r) => r.region === filters.region);
+  if (filters.search) {
+    const q = String(filters.search).toLowerCase();
+    rows = rows.filter(
+      (r) =>
+        r.requester_name.toLowerCase().includes(q) ||
+        (r.description || '').toLowerCase().includes(q) ||
+        r.blood_type.toLowerCase().includes(q) ||
+        r.region.toLowerCase().includes(q) ||
+        (r.hospital_name || '').toLowerCase().includes(q)
+    );
+  }
+  rows.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+  return rows;
+}
+
+async function getRequestPublic(id) {
+  await delay();
+  const d = getDb();
+  const r = d.requests.find((x) => x.id === id);
+  if (!r) throw new Error('Request not found.');
+  if (!['pending', 'accepted', 'completed'].includes(r.status))
+    throw new Error('This request is not publicly visible.');
+
+  return {
+    ...joinRequestPublic(r),
+    compatible_types: donorTypesFor(r.blood_type),
+    hospital_doctors: r.hospital_id ? hospitalDoctorSet(r.hospital_id) : [],
+    acceptances: [],
+    my_acceptance: null,
+    record: null
+  };
+}
+
 export default {
   // dev helper (not used by the UI)
   resetMockData: reset,
@@ -2133,5 +2249,11 @@ export default {
   listLogs,
 
   // public
-  getPublicStats
+  getPublicStats,
+
+  // v6.12 — public (signed-out) browsing
+  listHospitalsPublic,
+  getHospitalPublic,
+  listRequestsPublic,
+  getRequestPublic
 };

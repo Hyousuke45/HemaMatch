@@ -11,12 +11,17 @@ import { Building2 } from 'lucide-react';
 // its description, location, admin, doctors and doctor information on
 // the detail page. Regular users see VERIFIED hospitals only — an
 // unverified hospital is never displayed as verified anywhere.
+// v6.12: signed-out visitors browse the same verified directory via
+// listHospitalsPublic (read-only — actions live behind sign-in).
 export default function Hospitals() {
-  const { isAdmin, isBusiness } = useAuth();
+  const { user, isAdmin, isBusiness } = useAuth();
   const [search, setSearch] = useState('');
   const [region, setRegion] = useState('');
 
-  const { data, loading, error, reload } = useAsync(() => dataService.listHospitals(), []);
+  const { data, loading, error, reload } = useAsync(
+    () => (user ? dataService.listHospitals() : dataService.listHospitalsPublic()),
+    [Boolean(user)]
+  );
 
   // Client-side search filter (name / city / region / description)
   const filtered = (data || []).filter((h) => {
@@ -49,6 +54,15 @@ export default function Hospitals() {
           <Link to="/my-hospital" className="btn-secondary">
             My hospital
           </Link>
+        )}
+        {!user && (
+          <p className="text-sm text-muted">
+            You are browsing without an account —{' '}
+            <Link to="/register" className="font-semibold text-gold hover:underline">
+              register
+            </Link>{' '}
+            to message hospitals and donate.
+          </p>
         )}
       </div>
 

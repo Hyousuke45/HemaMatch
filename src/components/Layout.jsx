@@ -33,10 +33,12 @@ export function Brand() {
 
 const PUBLIC_LINKS = [
   { to: '/', label: 'Home', end: true },
-  { to: '/hospitals', label: 'Hospitals' }
+  { to: '/hospitals', label: 'Hospitals' },
+  // v6.12: browsable without an account (read-only public variants)
+  { to: '/requests', label: 'Browse requests' }
 ];
 
-export default function Layout() {
+export default function Layout({ children }) {
   const { user } = useAuth();
 
   return (
@@ -88,8 +90,10 @@ export default function Layout() {
       </header>
 
       {/* ---------- Main ---------- */}
+      {/* v6.12: DualShell passes the page as children; nested routes use
+          the Outlet. Render whichever is present. */}
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 md:py-8">
-        <Outlet />
+        {children || <Outlet />}
       </main>
 
       {/* ---------- Footer ---------- */}

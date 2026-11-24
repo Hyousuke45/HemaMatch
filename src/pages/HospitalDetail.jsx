@@ -30,7 +30,12 @@ export default function HospitalDetail() {
   const navigate = useNavigate();
   const { user, isAdmin, isDoctor } = useAuth();
 
-  const { data: h, loading, error, reload } = useAsync(() => dataService.getHospital(id), [id]);
+  // v6.12: signed-out visitors get the read-only public variant (same
+  // verified hospital, roster and stats) via getHospitalPublic.
+  const { data: h, loading, error, reload } = useAsync(
+    () => (user ? dataService.getHospital(id) : dataService.getHospitalPublic(id)),
+    [id, Boolean(user)]
+  );
 
   // Message hospital
   const [busyMessage, setBusyMessage] = useState(false);
@@ -164,7 +169,19 @@ export default function HospitalDetail() {
 
             {/* Actions */}
             <div className="mt-6 flex flex-wrap gap-2 border-t border-line pt-5">
-              {!isMyHospital && (
+              {/* v6.12: signed-out visitors cannot act — offer the account
+                  entry points instead of dead buttons. */}
+              {!user && (
+                <>
+                  <Link to="/register" className="btn-primary">
+                    Register to message this hospital
+                  </Link>
+                  <Link to="/login" className="btn-secondary">
+                    Sign in
+                  </Link>
+                </>
+              )}
+              {user && !isMyHospital && (
                 <button
                   type="button"
                   className="btn-primary"

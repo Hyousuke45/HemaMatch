@@ -5,20 +5,32 @@ import dataService from '../lib/dataService';
 import RequestCard from '../components/RequestCard';
 import BrowseTabs from '../components/BrowseTabs';
 import { EmptyState, InlineLoader, ErrorState } from '../components/ui';
+import { useAuth } from '../context/AuthContext';
 import { BLOOD_TYPES, REGIONS, REQUEST_STATUS } from '../lib/constants';
 
 // Browse all donation requests. Visibility rule (documented): every
 // authenticated user can see every request, with status badges.
+// v6.12: signed-out visitors browse actionable requests (pending /
+// accepted / completed) read-only — requester names masked.
 export default function Requests() {
+  const { user } = useAuth();
   const [filters, setFilters] = useState({ status: '', blood_type: '', region: '', search: '' });
   const { data, loading, error, reload } = useAsync(
-    () => dataService.listRequests({
-      status: filters.status || undefined,
-      blood_type: filters.blood_type || undefined,
-      region: filters.region || undefined,
-      search: filters.search || undefined
-    }),
-    [filters.status, filters.blood_type, filters.region]
+    () =>
+      user
+        ? dataService.listRequests({
+            status: filters.status || undefined,
+            blood_type: filters.blood_type || undefined,
+            region: filters.region || undefined,
+            search: filters.search || undefined
+          })
+        : // public variant already limits to actionable statuses
+          dataService.listRequestsPublic({
+            blood_type: filters.blood_type || undefined,
+            region: filters.region || undefined,
+            search: filters.search || undefined
+          }),
+    [filters.status, filters.blood_type, filters.region, Boolean(user)]
   );
 
   const set = (k) => (e) => setFilters((f) => ({ ...f, [k]: e.target.value }));
@@ -30,7 +42,9 @@ export default function Requests() {
         <div>
           <h1 className="text-2xl font-bold text-cream">Blood donation requests</h1>
           <p className="mt-1 text-sm text-muted">
-            All requests are visible to signed-in users. Choose one to view details and message the requester.
+            {user
+              ? 'All requests are visible to signed-in users. Choose one to view details and message the requester.'
+              : 'Browse open blood requests without an account — register to contact requesters and donate.'}
           </p>
         </div>
         {/* v3: browse requests or browse donors who offered to donate.
@@ -40,9 +54,15 @@ export default function Requests() {
             /requests). Both pages now share: title → tabs → action. */}
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <BrowseTabs />
-          <Link to="/requests/new" className="btn-primary">
-            + New request
-          </Link>
+          {user ? (
+            <Link to="/requests/new" className="btn-primary">
+              + New request
+            </Link>
+          ) : (
+            <Link to="/register" className="btn-primary">
+              Register to help
+            </Link>
+          )}
         </div>
       </div>
 
@@ -104,9 +124,15 @@ export default function Requests() {
               : 'There are no donation requests yet. Be the first to create one.'
           }
           action={
-            <Link to="/requests/new" className="btn-primary">
-              Create a request
-            </Link>
+            user ? (
+              <Link to="/requests/new" className="btn-primary">
+                Create a request
+              </Link>
+            ) : (
+              <Link to="/register" className="btn-primary">
+                Register to create one
+              </Link>
+            )
           }
         />
       )}

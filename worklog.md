@@ -325,3 +325,20 @@ Work Log:
 
 Stage Summary:
 - v6.11 complete: browser tab favicon, iOS home-screen icon, Android/ PWA icons and the in-app sidebar/public-header logo all use the supplied PNG assets. Static-only change; rebuild + redeploy, no DB action needed.
+
+---
+Task ID: 20
+Agent: main (Z.ai)
+Task: v6.12 — public (signed-out) browsing of hospitals + requests, "Browse requests" public nav.
+
+Work Log:
+- App.jsx: DualShell component — one URL, two shells (Layout for signed-out, guarded SidebarLayout for signed-in); /hospitals, /hospitals/:id, /requests, /requests/:id moved to it; old guarded duplicates removed.
+- Layout.jsx: PUBLIC_LINKS += 'Browse requests' (/requests); Layout({ children }) now renders children || Outlet.
+- mockBackend.js: listHospitalsPublic/getHospitalPublic/listRequestsPublic/getRequestPublic + maskFullName (First L.) + joinRequestPublic; exported.
+- supabaseBackend.js: same four public fns (anon-safe queries; masked names via get_public_profile_min batch RPC); exported.
+- Pages: Hospitals (public source + register hint), HospitalDetail (public source; actions -> Register/Sign in CTAs), Requests (public source; CTA swap; copy tweak), RequestDetail (public source; isOwner/canManage/matches guarded; actions -> CTAs; View profile hidden).
+- supabase/migrate-v6.12-public-browsing.sql written + appended to schema.sql: anon policies (verified hospitals, actionable requests, accepted roster), get_hospital_detail_public RPC, get_public_profile_min(uuid[]) RPC.
+- Tests: scripts/test_public_browsing.mjs (18 checks pass). Browser verification signed-out (all 4 pages) + signed-in (app shell + actions intact). Build passes.
+
+Stage Summary:
+- v6.12 complete: hospitals and blood requests are browsable without an account; public nav gains "Browse requests"; privacy preserved (masked names, no private fields, no anon profile access). Deploy = rebuild + run the SQL migration once.

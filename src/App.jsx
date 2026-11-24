@@ -1,10 +1,11 @@
 import { useEffect } from 'react';
 import { BrowserRouter, Route, Routes, useLocation } from 'react-router-dom';
-import { AuthProvider } from './context/AuthContext';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import Layout from './components/Layout';
 import SidebarLayout from './components/SidebarLayout';
 import { ProtectedRoute, AdminRoute } from './components/ProtectedRoute';
 import AdminLayout from './components/AdminLayout';
+import { PageLoader } from './components/ui';
 
 import Landing from './pages/Landing';
 import Login from './pages/Login';
@@ -51,6 +52,18 @@ function ScrollToTop() {
 // SidebarLayout reads the auth context, so it must sit INSIDE the guard.
 const app = (element) => <ProtectedRoute><SidebarLayout>{element}</SidebarLayout></ProtectedRoute>;
 
+// v6.12: one URL, two shells. Signed-out visitors browse hospitals and
+// requests in the marketing shell (read-only public variant of the page);
+// signed-in users get the full guarded app shell with the same page
+// component. The pages themselves branch on useAuth() when the two
+// experiences must differ (e.g. hiding actions, masking names).
+function DualShell({ publicPage, appPage }) {
+  const { user, loading } = useAuth();
+  if (loading) return <PageLoader />;
+  if (!user) return <Layout>{publicPage}</Layout>;
+  return <ProtectedRoute><SidebarLayout>{appPage}</SidebarLayout></ProtectedRoute>;
+}
+
 export default function App() {
   return (
     <AuthProvider>
@@ -68,6 +81,29 @@ export default function App() {
             <Route path="*" element={<NotFound />} />
           </Route>
 
+          {/* ---------- v6.12: dual-shell routes (public + app) ----------
+              Hospitals and requests are browsable WITHOUT an account.
+              Same URL for both worlds: signed-out visitors get the
+              marketing shell with the page's read-only public variant;
+              signed-in users get the normal guarded app shell. The pages
+              detect the viewer themselves via useAuth(). */}
+          <Route
+            path="/hospitals"
+            element={<DualShell publicPage={<Hospitals />} appPage={<Hospitals />} />}
+          />
+          <Route
+            path="/hospitals/:id"
+            element={<DualShell publicPage={<HospitalDetail />} appPage={<HospitalDetail />} />}
+          />
+          <Route
+            path="/requests"
+            element={<DualShell publicPage={<Requests />} appPage={<Requests />} />}
+          />
+          <Route
+            path="/requests/:id"
+            element={<DualShell publicPage={<RequestDetail />} appPage={<RequestDetail />} />}
+          />
+
           {/* ---------- Application shell (sidebar + topbar) ---------- */}
           <Route
             path="/dashboard"
@@ -81,22 +117,12 @@ export default function App() {
               <Profile />
             )}
           />
-          <Route
-            path="/requests"
-            element={app(
-              <Requests />
-            )}
-          />
+          {/* /requests, /requests/:id moved to DualShell above (v6.12):
+              browsable signed-out, app shell when signed in. */}
           <Route
             path="/requests/new"
             element={app(
               <RequestForm />
-            )}
-          />
-          <Route
-            path="/requests/:id"
-            element={app(
-              <RequestDetail />
             )}
           />
           <Route
@@ -130,19 +156,8 @@ export default function App() {
               <Messages />
             )}
           />
-          <Route
-            path="/hospitals"
-            element={app(
-              <Hospitals />
-            )}
-          />
-          {/* v4 — hospital detail (photo + description + roster) */}
-          <Route
-            path="/hospitals/:id"
-            element={app(
-              <HospitalDetail />
-            )}
-          />
+          {/* /hospitals + /hospitals/:id moved to DualShell above (v6.12) */}
+
           {/* v4 — business (hospital admin) panel */}
           <Route
             path="/my-hospital"
