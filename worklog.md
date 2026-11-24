@@ -311,3 +311,17 @@ Work Log:
 
 Stage Summary:
 - v6.10 complete: every role has notifications; deploy = re-run schema.sql + seed.sql.
+
+---
+Task ID: 19
+Agent: main (Z.ai)
+Task: v6.11 — wire the real PNG icons (public/icons, public/favicon_io, public/manifest_and_icons) instead of dead/placeholder references.
+
+Work Log:
+- index.html: favicon links now real files — /favicon.ico root + favicon_io/{favicon-16x16, favicon-32x32, android-chrome-192x192, android-chrome-512x512, apple-touch-icon}.png + manifest link. Old /icon-192.png + /icon-512.png root references removed (they 404'd).
+- manifest.webmanifest: real icon paths (android-chrome 192/512 any-purpose; manifest_and_icons/icon512_maskable.png maskable; icon512_rounded.png any) + white theme/background + portrait-primary.
+- Brand marks: SidebarLayout BrandMark + public Layout Brand replaced the inline lucide Droplet SVG with the real logo image (src/assets/logo-128.png derived from public/icons/App Icon.png; also logo-64/256.png in public/icons for reuse). Vite bundles + cache-busts it.
+- Verification: build PASS; served dist and curl-verified all 12 icon URLs return 200 (old refs 404 as expected); manifest JSON valid with 4 icons; logo present in dist/assets and referenced from JS chunk.
+
+Stage Summary:
+- v6.11 complete: browser tab favicon, iOS home-screen icon, Android/ PWA icons and the in-app sidebar/public-header logo all use the supplied PNG assets. Static-only change; rebuild + redeploy, no DB action needed.

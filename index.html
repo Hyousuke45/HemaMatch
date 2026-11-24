@@ -9,10 +9,15 @@
       content="HemaMatch connects people who need blood with volunteer donors. Academic MVP — preliminary matching only, not a medical platform."
     />
     <meta name="theme-color" content="#ffffff" />
-    <!-- App icons: swap public/icon-192.png and public/icon-512.png to rebrand -->
-    <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
-    <link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png" />
-    <link rel="apple-touch-icon" href="/icon-192.png" />
+    <!-- v6.11: real generated PNG icons from public/favicon_io + public/icons
+         (replaces the old root-level icon-192/512.png references that 404'd).
+         favicon.ico at the root is the legacy fallback for older browsers. -->
+    <link rel="icon" href="/favicon.ico" sizes="48x48" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon_io/favicon-16x16.png" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon_io/favicon-32x32.png" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/favicon_io/android-chrome-192x192.png" />
+    <link rel="icon" type="image/png" sizes="512x512" href="/favicon_io/android-chrome-512x512.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/favicon_io/apple-touch-icon.png" />
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />

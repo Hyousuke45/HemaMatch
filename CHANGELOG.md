@@ -1,6 +1,7 @@
 # HemaMatch — Change Report
 
-**v6.10 — November 24, 2026** (latest) · feat: notifications for every role
+**v6.11 — November 24, 2026** (latest) · fix: real PNG app icons wired in
+**v6.10 — November 24, 2026** · feat: notifications for every role
 **v6.9 — November 24, 2026** · fix: demo doctor/business logins (GoTrue 500 + instance_id bug)
 **v6.8 — November 24, 2026** · all demo data scoped to Valencia City, Bukidnon (Region X) — real Valencia hospitals
 **v6.7 — November 24, 2026** · infinite recursion in the conversation_participants RLS policy fixed (security-definer helper; 4 policies rewritten)
@@ -29,6 +30,56 @@
 
 
 
+
+
+---
+
+# HemaMatch — Change Report (v6.11)
+
+**Date:** November 24, 2026 · **Scope:** use the real generated PNG icons
+(`public/icons/`, `public/favicon_io/`, `public/manifest_and_icons/`)
+instead of missing/placeholder references.
+
+## 1. What was broken
+
+`index.html` referenced `/icon-192.png` and `/icon-512.png` at the site
+root — files that never existed (the real PNGs sit in `public/icons/`
+and `public/favicon_io/`). Every browser tab showed no icon / a generic
+fallback, and the PWA manifest pointed at the same dead paths. The
+in-app brand mark was an inline lucide Droplet SVG, not the real logo.
+
+## 2. What changed
+
+- **`index.html`** — favicon links now point at the REAL files:
+  `/favicon.ico` (root, legacy fallback), `favicon_io/favicon-16x16.png`,
+  `favicon_io/favicon-32x32.png`, `favicon_io/android-chrome-{192,512}.png`,
+  `apple-touch-icon.png` (180×180), plus the manifest link.
+- **`public/manifest.webmanifest`** — icons now use the real paths:
+  android-chrome 192/512 (`purpose: any`), the maskable 512 and rounded
+  512 from `manifest_and_icons/`, correct HemaMatch theme/background
+  colors and `portrait-primary` orientation.
+- **Brand mark (in-app logo)** — `SidebarLayout.jsx` `BrandMark` and the
+  public `Layout.jsx` `Brand` no longer render an inline SVG droplet;
+  they use the real logo derived from the supplied `App Icon.png`
+  (`src/assets/logo-128.png`, bundled and cache-busted by Vite).
+  Smaller marks (`logo-64/256.png`) also derived for reuse.
+- All original files kept untouched in `public/icons/`,
+  `public/favicon_io/`, `public/manifest_and_icons/`.
+
+## 3. Verification
+
+- `bun run build` passes; `dist/` contains all icon folders.
+- Served `dist/` and curl-checked all 12 icon URLs → all **200**
+  (`favicon.ico`, 5 favicon_io PNGs, manifest, maskable + rounded 512s,
+  icon-192/512, logo-128); the old `/icon-192.png` path correctly 404s.
+- `manifest.webmanifest` parses as valid JSON with 4 icons.
+- Bundled logo referenced in the JS chunk as
+  `assets/logo-128-*.png` (present in `dist/assets/`).
+
+## 4. Deploying
+
+Nothing to run in Supabase — static frontend only. Rebuild
+(`bun run build`) and redeploy. No `.env` changes.
 
 ---
 

@@ -2,7 +2,7 @@ import { NavLink, Outlet } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { APP_NAME, APP_DISCLAIMER } from '../lib/constants';
 import { classNames } from '../lib/utils';
-import { Droplet } from 'lucide-react';
+import brandLogo from '../assets/logo-128.png';
 
 /* Public marketing shell (v6): landing, login, register, password reset,
    404. Signed-in pages render inside SidebarLayout (sidebar + topbar),
@@ -12,9 +12,13 @@ import { Droplet } from 'lucide-react';
 export function Brand() {
   return (
     <NavLink to="/" className="flex items-center gap-2.5" aria-label={`${APP_NAME} home`}>
-      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-gold text-white">
-        <Droplet className="h-5 w-5" strokeWidth={2} aria-hidden="true" />
-      </span>
+      <img
+        src={brandLogo}
+        alt=""
+        width="36"
+        height="36"
+        className="h-9 w-9 shrink-0 rounded-[10px] object-cover"
+      />
       <span className="leading-none">
         <span className="block text-lg font-bold tracking-tight text-cream">
           Hema<span className="text-gold">Match</span>

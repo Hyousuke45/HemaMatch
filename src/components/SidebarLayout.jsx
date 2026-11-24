@@ -86,12 +86,20 @@ function roleSections({ isAdmin, isBusiness, isDoctor }) {
 }
 
 // ---------- Brand ----------
+// v6.11: the real generated app icon (public/icons/logo-128.png, derived
+// from the supplied App Icon.png) replaces the inline lucide Droplet SVG.
+import brandLogo from '../assets/logo-128.png';
+
 function BrandMark({ compact = false }) {
   return (
     <NavLink to="/" className="flex items-center gap-2.5" aria-label={`${APP_NAME} home`}>
-      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-gold text-white">
-        <Droplet className="h-5 w-5" strokeWidth={2} aria-hidden="true" />
-      </span>
+      <img
+        src={brandLogo}
+        alt=""
+        width="36"
+        height="36"
+        className="h-9 w-9 shrink-0 rounded-[10px] object-cover"
+      />
       {!compact && (
         <span className="leading-none">
           <span className="block text-[17px] font-bold tracking-tight text-cream">
