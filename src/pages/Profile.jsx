@@ -358,7 +358,7 @@ export default function Profile() {
             <label className="label" htmlFor="city">
               City / municipality
             </label>
-            <input id="city" className="input" value={form.city} onChange={set('city')} placeholder="e.g. Quezon City" maxLength={60} />
+            <input id="city" className="input" value={form.city} onChange={set('city')} placeholder="e.g. Valencia City" maxLength={60} />
           </div>
         </div>
 

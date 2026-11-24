@@ -1,6 +1,10 @@
 # HemaMatch — Change Report
 
-**v6.6 — November 24, 2026** (latest) · seed.sql FK crash fixed (explicit idempotent profiles insert) + the empty hospital dropdown explained & fixed with visible error/empty states
+**v6.10 — November 24, 2026** (latest) · feat: notifications for every role
+**v6.9 — November 24, 2026** · fix: demo doctor/business logins (GoTrue 500 + instance_id bug)
+**v6.8 — November 24, 2026** · all demo data scoped to Valencia City, Bukidnon (Region X) — real Valencia hospitals
+**v6.7 — November 24, 2026** · infinite recursion in the conversation_participants RLS policy fixed (security-definer helper; 4 policies rewritten)
+**v6.6 — November 24, 2026** · seed.sql FK crash fixed (explicit idempotent profiles insert) + the empty hospital dropdown explained & fixed with visible error/empty states
 **v6.5 — November 24, 2026** · last "blood type needed" wording removed; hospitals list crash (phantom doctor_count column) fixed; schema.sql validated statement-by-statement in a real Postgres and made re-runnable
 **v6.4 — November 21, 2026** · blood-type labelling clarified (form + request panel), browse tabs locked to equal size, New-request button moved below the tabs
 **v6.3 — November 21, 2026** · dashboard declutter: donor-profile card removed, stats condensed into one card, quick actions rebalanced (icon beside label on mobile, 6 columns)
@@ -21,6 +25,249 @@
 
 
 
+
+
+
+
+
+---
+
+# HemaMatch — Change Report (v6.10)
+
+**Date:** November 24, 2026 · **Scope:** notifications for every role
+(admin, donor, requester, doctor, business) — previously business-only.
+
+## 1. What changed
+
+The `/notifications` tab, the topbar bell and its unread badge are now
+available to EVERY signed-in account. A new `user_notifications` inbox
+(same shape as the hospital one, but addressed to a single user) is
+written automatically by the database whenever something happens to you:
+
+| Event | Who is notified |
+| --- | --- |
+| Your request changes status (with reason) | the requester + every accepted donor |
+| A donor accepts a request | the requester + the donor (receipt) + the assigned doctor |
+| A doctor is assigned / re-assigned to an acceptance | the doctor |
+| A hospital reviews your doctor application | the doctor (accepted / rejected + reason) |
+| An outcome record is created | the donor + the requester |
+
+Business accounts keep their hospital inbox; the `/notifications` page
+merges both streams into one tab (hospital rows keep their mark-read
+semantics), and the bell counts both.
+
+## 2. Where
+
+- **`supabase/schema.sql`** — `public.user_notifications` table (RLS:
+  select/update own rows only; no client insert/delete), `notify_user()`
+  helper, and emission wired into the existing SECURITY DEFINER
+  triggers/RPCs (`guard_request_update`, `on_acceptance_created`,
+  `set_acceptance_doctor`, `hospital_set_doctor_application_status`,
+  `on_record_created`).
+- **`supabase/seed.sql`** — 10 demo rows so every account (admin,
+  maria, juan, angela, grace, dr.ramos, dr.domingo…) opens the app with
+  a populated bell on first seed run; later runs rely on live triggers.
+- **`src/lib/mockBackend.js`** — `notifyUser()` mirrors the SQL
+  emission on the same five events; `listUserNotifications` /
+  `markUserNotificationRead` / `markAllUserNotificationsRead`.
+- **`src/lib/supabaseBackend.js`** — the same three functions against
+  the table (RLS scopes rows per user).
+- **`src/pages/Notifications.jsx`** — all roles; business sees the
+  merged stream (user + hospital inbox).
+- **`src/components/NotificationList.jsx`** — rows carry a `source`
+  tag; mark-read routes to the right backend; two new type labels
+  (Request status, Doctor assignment).
+- **`src/components/SidebarLayout.jsx`** — Notifications nav entry for
+  all roles (Communicate section); bell + unread badge for everyone.
+
+## 3. Verification
+
+- PGlite: table + RLS (own rows only, no client insert/delete,
+  retarget-proof), emission for all five events, idempotent re-runs —
+  ALL USER-NOTIFICATION CHECKS PASSED.
+- Mock harness: seeded inbox per role, live emission on
+  accept/status-change, mark-read + mark-all, foreign mark-read
+  rejected — ALL MOCK CHECKS PASSED.
+- Full schema validator + login-semantics validator: ALL CHECKS
+  PASSED. Frontend build passes.
+
+## 4. Deploying
+
+Re-run `supabase/schema.sql` then `supabase/seed.sql` in the Supabase
+SQL editor (both are idempotent; the seed self-heals older rows and now
+seeds the demo user notifications). No .env or frontend changes needed.
+
+---
+
+# HemaMatch — Change Report (v6.9)
+
+**Date:** November 24, 2026 · **Scope:** login failures on the live
+Supabase project (doctor / business / business+doctor demo accounts).
+
+## 1. Symptoms and root causes
+
+| Login attempt | Browser error | Root cause |
+| --- | --- | --- |
+| `dr.ramos@demo.com` (Doctor) | "Database error querying schema" (HTTP 500) | GoTrue scans `auth.users` columns (`email_change`, `email_change_token_new`, `email_change_token_current`, `email_change_sent_at`) into NON-NULLABLE Go strings; the seed left them NULL → `sql: Scan error … converting NULL to string` → generic 500 (supabase/auth#1940) |
+| `biz.stmary@demo.com` (Business) | "Invalid email or password." (HTTP 400) | copy-paste bug: the three business rows had `instance_id` set to **their own user UUID** instead of the project's all-zeros instance UUID → GoTrue's instance-scoped lookup never matched them |
+| `biz.davao@demo.com` (Business+Doctor) | "Invalid email or password." (HTTP 400) | same `instance_id` bug |
+
+## 2. Fixes
+
+1. **`supabase/seed.sql`** — the `auth.users` INSERT now supplies every
+   GoTrue-scanned column: `email_change`, `email_change_token_new`,
+   `email_change_token_current` as `''`, and `email_change_sent_at` as
+   the epoch. The three business rows got the correct all-zeros
+   `instance_id`. A **self-healing block** (section 1c) also repairs
+   rows seeded by older versions on re-run, and re-asserts the
+   `auth.identities` email-provider rows.
+2. **`supabase/fix-login.sql`** (NEW, standalone patch) — run this once
+   in the Supabase SQL editor on the live project to repair existing
+   broken rows WITHOUT re-running the whole seed: backfills ''/epoch on
+   all GoTrue-scanned columns, resets instance_id to the all-zeros
+   instance UUID, re-hashes any NULL passwords with the demo passwords,
+   and inserts missing `auth.identities` rows. Ends with a verification
+   SELECT printing one row per demo account with three ok-flags.
+   Idempotent; touches only `@demo.com` accounts.
+3. **`src/lib/supabaseBackend.js`** — the "Database error querying schema"
+   500 now surfaces as a friendly message pointing at the patch file
+   instead of the raw GoTrue error.
+
+## 3. Verification (PGlite, GoTrue-semantics simulation)
+
+- Fresh seed → all 10 chip accounts log in OK (admin, 3 doctors, 4
+  businesses, donor, requester), including the three previously broken
+  business rows and the doctor row.
+- Seed re-run (idempotency) → all logins still OK.
+- Old broken shape recreated (NULL token columns + wrong instance_id) →
+  all logins fail exactly as reported; applying `fix-login.sql` alone →
+  all 10 repaired.
+- Full schema validator: ALL SCHEMA CHECKS PASSED (RLS recursion guards
+  still green; 4 Valencia hospitals with rosters 0/0/2/1).
+- Frontend build passes.
+
+## 4. Deploying
+
+Run `supabase/fix-login.sql` in the Supabase SQL editor (fastest fix on
+the live project), or re-run the updated `supabase/seed.sql` (its
+self-healing section repairs the existing rows). Then sign in with the
+login-screen quick-fill chips as usual.
+
+---
+
+# HemaMatch — Change Report (v6.8)
+
+**Date:** November 24, 2026 · **Scope:** geography of all demo/seed data.
+
+## 1. What changed
+
+Per the client's request, ALL demo data — hospitals, donor/requester/doctor
+profiles, blood requests, donation offers, notifications, chat transcripts,
+form placeholders and the landing demo card — is now scoped to **Valencia
+City, Bukidnon, Region X (Northern Mindanao), Philippines**.
+
+## 2. Hospitals (real Valencia City facilities)
+
+| ID | Hospital | Address | Contact |
+| --- | --- | --- | --- |
+| aa01 | Valencia Adventist Medical Center | Sayre Highway, Brgy. Poblacion, Valencia City | (088) 828-7777 |
+| aa02 | Valencia Medical Hospital | Sayre Highway, Brgy. Poblacion, Valencia City | (088) 828-8888 |
+| aa03 | La Viña General Hospital | National Highway, Brgy. La Viña, Valencia City | (088) 828-9999 |
+| aa04 | Abella Midway Hospital | Sayre Highway, Brgy. Poblacion, Valencia City | (088) 828-6666 |
+
+All four: region `Region X (Northern Mindanao)`, city `Valencia City`,
+Bukidnon postal 8709, area code 088, Sayre Highway addresses.
+
+## 3. Data sweep
+
+- 18/18 profiles with region → `Region X (Northern Mindanao)` / `Valencia City`
+- 3/3 blood requests → Region X
+- All offer notes, request descriptions, notification bodies, doctor
+  application notes, seeded chat messages: old city references replaced
+- mock mode (mockData.js) mirrors the SQL seed exactly
+- Region dropdown keeps the full 17-region Philippine list — real users
+  can still register from anywhere; only the SEEDED demo data is scoped
+- Demo login emails kept (`biz.stmary@demo.com` etc.) — they are login
+  credentials, not location data; labels now show the hospital names
+- schema.sql backfill migration reference updated to Valencia Adventist
+
+## 4. Verification
+
+- Full schema validator passes: seed executes cleanly, RLS recursion guard
+  [10]/[11] still green, idempotent re-run OK
+- Dedicated scope check: 4/4 hospitals, 18/18 profiles, 3/3 requests in
+  Valencia City + Region X; 28 seeded text rows contain no old-location
+  strings (NCR/Manila/Iloilo/Davao/St. Mary/...)
+- Frontend build passes
+
+## 5. Deploying
+
+Re-run `supabase/seed.sql` after schema (idempotent `on conflict do
+nothing` on every row). No schema changes were needed — region/city are
+free text with no CHECK constraints.
+
+---
+
+# HemaMatch — Change Report (v6.7)
+
+**Date:** November 24, 2026 · **Scope:** RLS policy recursion in the messaging tables.
+
+## 1. The error
+
+    infinite recursion detected in policy for relation "conversation_participants"
+
+Reproduced locally in embedded Postgres before fixing.
+
+## 2. Root cause
+
+The `participants_select_participant` policy **on** `conversation_participants`
+subqueried `public.conversation_participants` in its own `USING` clause. Postgres
+applies a table's RLS to queries inside a policy — including the policy's own
+subquery — so evaluating the policy re-triggered the same policy: error 42P17
+(infinite recursion). Every access path that touched the table died, including
+the app's `listConversations()` nested select (conversations +
+`conversation_participants(user_id)`), which is where the error surfaced.
+
+Three sibling policies on `conversations` and `messages` scanned the same
+table from outside, which is legal — but they re-entered the broken
+participants policy through it, so messaging failed wholesale.
+
+## 3. Fix (schema.sql)
+
+1. New `security definer` helper `public.is_conversation_participant(uuid)`:
+   runs outside RLS (the schema's established pattern, e.g. `is_admin()`), so
+   its internal scan of `conversation_participants` does not re-enter any
+   policy. Placed after the messaging tables (SQL validates function bodies
+   at creation); granted to `authenticated`.
+2. Four policies rewritten to call the helper instead of subquerying the
+   table directly:
+   - `conversations_select_participants` → `using (public.is_conversation_participant(conversations.id))`
+   - `messages_select_participants` → same pattern
+   - `messages_insert_participant` → `with check (sender_id = auth.uid() and public.is_conversation_participant(...))`
+   - `participants_select_participant` → `using (public.is_conversation_participant(conversation_id))`
+     — the caller now sees every membership row of conversations they take
+     part in (needed to render "who is the other participant").
+3. Drop-if-exists guards kept, so the schema stays re-runnable.
+
+## 4. Verification (embedded Postgres, real RLS enforcement)
+
+- Participant sees their conversation: participants=2, messages=1,
+  conversations=1. Outsider sees all three = 0 (no leak).
+- Outsider INSERT into messages: blocked by RLS.
+- The app's exact `listConversations()` nested-select query shape runs
+  clean and returns both participant ids.
+- Recursion sweep across all 12 public tables as `authenticated`: 0 errors.
+- Validator gains permanent checks `[10]` (RLS runtime participant/outsider
+  semantics + app query shape) and `[11]` (recursion sweep); the full suite
+  passes, including the v6.6 seed re-run simulation.
+- Messages.jsx already renders load errors via EmptyState (no silent-empty
+  trap like the v6.6 dropdown).
+
+## 5. Deploying the fix
+
+The schema is idempotent — re-run `supabase/schema.sql` in the Supabase SQL
+editor (the policy `drop ... if exists` guards make it safe on an existing
+project). No seed or client changes are required.
 
 ---
 

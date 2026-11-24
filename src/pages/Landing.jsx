@@ -81,12 +81,12 @@ export default function Landing() {
               </span>
             </div>
             <p className="mt-4 text-sm leading-relaxed text-cream/80">
-              &quot;Patient scheduled for major surgery at St. Mary General Hospital needs O+ blood.
+              &quot;Patient scheduled for major surgery at Valencia Adventist Medical Center needs O+ blood.
               Donors matched here will still go through standard screening at the hospital.&quot;
             </p>
             <div className="mt-4 flex items-center justify-between border-t border-line pt-4 text-xs text-muted">
               <span>3 units needed</span>
-              <span>NCR · Urgent</span>
+              <span>Bukidnon · Urgent</span>
             </div>
           </div>
           <div

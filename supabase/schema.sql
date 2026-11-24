@@ -1,6 +1,9 @@
 -- ============================================================
 -- HemaMatch — PostgreSQL schema for Supabase (Phase 2)
 -- ============================================================
+-- v6.7: fixed infinite recursion in the conversation_participants RLS
+-- policy (self-referencing subquery) via is_conversation_participant().
+--
 -- Run order: paste this whole file into the Supabase SQL Editor and run it
 -- once. It creates every table, relationship, constraint, trigger and RLS
 -- policy the application needs.
@@ -236,6 +239,7 @@ as $$
   select exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin');
 $$;
 
+
 -- The hospital's own business admin.
 create or replace function public.is_hospital_admin(hospital_id uuid)
 returns boolean
@@ -343,7 +347,7 @@ create table if not exists public.donation_requests (
 --   1. the single preferred_donor_type column becomes the multi-select
 --      preferred_donor_types array (from the compatibility checkboxes);
 --   2. the hospital becomes REQUIRED — the donation process happens
---      there. Requests without a hospital are backfilled to St. Mary
+--      there. Requests without a hospital are backfilled to Valencia Adventist
 --      General Hospital (the demo hospital); adjust the backfill to
 --      your data before running on a real database.
 alter table public.donation_requests
@@ -382,7 +386,7 @@ end $$;
 update public.donation_requests r
   set hospital_id = h.id
   from public.hospitals h
-  where h.name = 'St. Mary General Hospital'
+  where h.name = 'Valencia Adventist Medical Center'
     and r.hospital_id is null;
 alter table public.donation_requests alter column hospital_id set not null;
 
@@ -532,6 +536,24 @@ begin
           'Donor accepted request ' || new.request_id ||
           case when v_doctor is not null then ' — assigned doctor: ' || v_doctor else ' — no doctor assigned' end || '.');
 
+  -- v6.10: the requester learns a donor was found (with the assigned
+  -- doctor, if any), and the donor gets a confirmation of their own
+  -- acceptance so their bell/notifications tab reflects it.
+  perform public.notify_user(
+    (select requester_id from public.donation_requests where id = new.request_id),
+    'donor_accepted', 'A donor accepted your request',
+    (select full_name from public.profiles where id = new.donor_id) || ' accepted your ' ||
+      (select blood_type from public.donation_requests where id = new.request_id) || ' request' ||
+      case when v_doctor is not null then ' — assigned doctor: ' || v_doctor else '' end || '.',
+    new.request_id, new.donor_id);
+  perform public.notify_user(
+    new.donor_id, 'donor_accepted', 'You accepted a request',
+    'You are now a donor on the ' ||
+      (select blood_type from public.donation_requests where id = new.request_id) || ' request from ' ||
+      coalesce(v_requester, 'a requester') ||
+      case when v_doctor is not null then ' — assigned doctor: ' || v_doctor else '' end || '.',
+    new.request_id, null); -- no actor: the donor's own receipt is not skipped
+
   -- v4 (client rule): the hospital is notified that a donor accepted.
   if v_hospital.id is not null then
     insert into public.hospital_notifications (hospital_id, type, title, body, request_id, actor_id)
@@ -662,6 +684,23 @@ begin
       case when v_reason <> '' then ' — reason: ' || v_reason else '' end ||
       case when is_admin and not is_requester then ' (administrator action)' else '' end
     );
+    -- v6.10: tell the requester and every accepted donor about the change.
+    perform public.notify_user(
+      new.requester_id, 'request_status', 'Your request changed status',
+      'Your ' || new.blood_type || ' request (' || new.units_needed || ' unit' ||
+        case when new.units_needed > 1 then 's' else '' end || ') changed status from ' ||
+        old.status || ' to ' || new.status ||
+        case when v_reason <> '' then ' — reason: ' || v_reason else '' end || '.',
+      new.id, auth.uid());
+    perform public.notify_user(
+      a.donor_id, 'request_status', 'A request you accepted changed status',
+      'The ' || new.blood_type || ' request from ' ||
+        coalesce((select full_name from public.profiles where id = new.requester_id), 'a requester') ||
+        ' you accepted changed status from ' || old.status || ' to ' || new.status ||
+        case when v_reason <> '' then ' — reason: ' || v_reason else '' end || '.',
+      new.id, auth.uid())
+    from public.donor_acceptances a
+    where a.request_id = new.id and a.status = 'accepted';
     -- v_reason is set transaction-locally by set_request_status(); clear it so
     -- later statements in the same transaction never inherit a stale reason.
     perform set_config('app.status_reason', '', true);
@@ -767,6 +806,20 @@ begin
   values (new.recorded_by, 'record.created', 'donation_records', new.id,
           'Outcome recorded: ' || new.outcome || case when new.reason <> '' then ' — ' || new.reason else '' end);
 
+  -- v6.10: the donor and the requester both learn the outcome.
+  perform public.notify_user(
+    new.donor_id, 'outcome', 'Outcome recorded for your donation',
+    'The donation for the ' || coalesce((select blood_type from public.donation_requests where id = new.request_id), 'blood') ||
+      ' request was recorded as ' || new.outcome ||
+      case when new.reason <> '' then ' — ' || new.reason else '' end || '.',
+    new.request_id, new.recorded_by);
+  perform public.notify_user(
+    (select requester_id from public.donation_requests where id = new.request_id),
+    'outcome', 'Outcome recorded for your request',
+    'A ' || new.outcome || ' donation record was added to your ' ||
+      coalesce((select blood_type from public.donation_requests where id = new.request_id), 'blood') || ' request.',
+    new.request_id, new.recorded_by);
+
   return new;
 end;
 $$;
@@ -815,17 +868,32 @@ create table if not exists public.messages (
 
 alter table public.messages enable row level security;
 
+-- v6.7: RLS-safe participant check. SECURITY DEFINER runs outside RLS, so
+-- policies on conversation_participants (and every table whose policies
+-- scan it) no longer re-enter the participants policy — the previous
+-- self-referencing policy produced
+-- "infinite recursion detected in policy for relation conversation_participants".
+create or replace function public.is_conversation_participant(p_conversation_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1 from public.conversation_participants cp
+    where cp.conversation_id = p_conversation_id and cp.user_id = auth.uid()
+  );
+$$;
+
+grant execute on function public.is_conversation_participant(uuid) to authenticated;
+
 -- Conversations are visible only to their participants.
 -- v6.5: guard so the schema can be safely re-run.
 drop policy if exists "conversations_select_participants" on public.conversations;
 create policy "conversations_select_participants"
   on public.conversations for select to authenticated
-  using (
-    exists (
-      select 1 from public.conversation_participants cp
-      where cp.conversation_id = conversations.id and cp.user_id = auth.uid()
-    )
-  );
+  using (public.is_conversation_participant(conversations.id));
 -- No INSERT policy for conversations: created only by the RPC below.
 
 -- Trusted server-side function: atomically creates a conversation with
@@ -939,12 +1007,7 @@ grant execute on function public.start_hospital_conversation(uuid) to authentica
 drop policy if exists "messages_select_participants" on public.messages;
 create policy "messages_select_participants"
   on public.messages for select to authenticated
-  using (
-    exists (
-      select 1 from public.conversation_participants cp
-      where cp.conversation_id = messages.conversation_id and cp.user_id = auth.uid()
-    )
-  );
+  using (public.is_conversation_participant(messages.conversation_id));
 
 -- Only a participant can send, and only in their own name.
 -- v6.5: guard so the schema can be safely re-run.
@@ -953,10 +1016,7 @@ create policy "messages_insert_participant"
   on public.messages for insert to authenticated
   with check (
     sender_id = auth.uid()
-    and exists (
-      select 1 from public.conversation_participants cp
-      where cp.conversation_id = messages.conversation_id and cp.user_id = auth.uid()
-    )
+    and public.is_conversation_participant(messages.conversation_id)
   );
 -- No UPDATE / DELETE policies: chat history is immutable.
 
@@ -1112,13 +1172,11 @@ create index if not exists idx_logs_created on public.activity_logs(created_at d
 drop policy if exists "participants_select_participant" on public.conversation_participants;
 create policy "participants_select_participant"
   on public.conversation_participants for select to authenticated
-  using (
-    exists (
-      select 1 from public.conversation_participants cp
-      where cp.conversation_id = conversation_participants.conversation_id
-        and cp.user_id = auth.uid()
-    )
-  );
+  -- v6.7: the old body scanned conversation_participants itself -> RLS
+  -- recursion (42P17). The helper is SECURITY DEFINER, so the check runs
+  -- outside RLS — the caller sees every membership row of conversations
+  -- they take part in (needed to render "who is the other participant").
+  using (public.is_conversation_participant(conversation_id));
 
 -- 9.2 Status transitions with a REASON (recorded in the activity log).
 --     The reason travels via a transaction-local setting that the
@@ -1827,6 +1885,70 @@ create policy "notifications_update_hospital_admin"
 -- No INSERT/DELETE policies for clients: notifications are
 -- trigger/RPC-written only.
 
+
+-- ------------------------------------------------------------
+-- 11.4 USER NOTIFICATIONS (v6.10 — every role's inbox)
+-- Written by triggers/RPCs only; each user reads + marks read.
+-- Mirrors hospital_notifications, but scoped to a single user.
+-- ============================================================
+create table if not exists public.user_notifications (
+  id uuid primary key default gen_random_uuid(),
+  recipient_id uuid not null references public.profiles(id) on delete cascade,
+  type text not null check (type in (
+    'request_status', 'donor_accepted', 'assignment', 'doctor_application', 'outcome'
+  )),
+  title text not null check (char_length(title) <= 160),
+  body text not null check (char_length(body) <= 600),
+  request_id uuid references public.donation_requests(id) on delete set null,
+  actor_id uuid references public.profiles(id),
+  read boolean not null default false,
+  created_at timestamptz not null default now()
+);
+
+alter table public.user_notifications enable row level security;
+
+-- v6.10: guard so the schema can be safely re-run.
+drop policy if exists "user_notifications_select_own" on public.user_notifications;
+create policy "user_notifications_select_own"
+  on public.user_notifications for select to authenticated
+  using (recipient_id = auth.uid());
+
+-- v6.10: guard so the schema can be safely re-run.
+drop policy if exists "user_notifications_update_own" on public.user_notifications;
+create policy "user_notifications_update_own"
+  on public.user_notifications for update to authenticated
+  using (recipient_id = auth.uid())
+  with check (recipient_id = auth.uid());
+-- No INSERT/DELETE policies for clients: rows are trigger/RPC-written only.
+
+-- Internal helper: one row into a user's inbox (SECURITY DEFINER callers
+-- only). Skips NULL recipients and never notifies the actor themselves.
+create or replace function public.notify_user(
+  p_recipient uuid,
+  p_type text,
+  p_title text,
+  p_body text,
+  p_request_id uuid default null,
+  p_actor_id uuid default null
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if p_recipient is null or p_recipient = p_actor_id then
+    return;
+  end if;
+  if p_type not in ('request_status', 'donor_accepted', 'assignment', 'doctor_application', 'outcome') then
+    raise exception 'Unknown notification type: %', p_type;
+  end if;
+  insert into public.user_notifications (recipient_id, type, title, body, request_id, actor_id)
+  values (p_recipient, p_type,
+          left(p_title, 160), left(p_body, 600), p_request_id, p_actor_id);
+end;
+$$;
+
 -- Notify a hospital when a request is created with (or edited to add)
 -- this hospital. [RLS mirror of the mock notifyHospital()]
 create or replace function public.notify_request_hospital()
@@ -2046,6 +2168,18 @@ begin
   values (auth.uid(), 'acceptance.doctor_changed', 'donor_acceptances', p_acceptance_id,
           'Assigned doctor changed to ' ||
           coalesce((select full_name from public.profiles where id = p_doctor_id), '?') || '.');
+
+  -- v6.10: tell the newly assigned doctor they are a witness.
+  perform public.notify_user(
+    p_doctor_id, 'assignment', 'You were assigned to a donation',
+    'You are the witness doctor for the acceptance of donor ' ||
+      coalesce((select full_name from public.profiles where id = v_acceptance.donor_id), 'a donor') ||
+      ' on a ' ||
+      coalesce((select blood_type from public.donation_requests where id = v_acceptance.request_id), 'blood') ||
+      ' request from ' ||
+      coalesce((select full_name from public.profiles where id =
+                  (select requester_id from public.donation_requests where id = v_acceptance.request_id)), 'a requester') || '.',
+    v_acceptance.request_id, auth.uid());
 
   return jsonb_build_object('id', p_acceptance_id, 'doctor_id', p_doctor_id);
 end;
@@ -2342,6 +2476,15 @@ begin
   update public.hospital_doctors
     set status = p_status, reviewed_by = auth.uid(), reviewed_at = now()
     where id = p_application_id;
+
+  -- v6.10: the applicant learns the outcome (accepted / rejected with
+  -- the review reason).
+  perform public.notify_user(
+    v_app.doctor_id, 'doctor_application',
+    'Your hospital application was ' || p_status,
+    'Your application to ' || coalesce(v_hospital.name, 'a hospital') || ' was ' || p_status ||
+      case when coalesce(p_reason, '') <> '' then ' — reason: ' || p_reason else '' end || '.',
+    null, auth.uid());
 
   return jsonb_build_object('id', p_application_id, 'status', p_status);
 end;

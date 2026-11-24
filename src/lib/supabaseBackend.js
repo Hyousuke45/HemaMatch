@@ -37,6 +37,13 @@ function fail(error, fallback = 'Something went wrong.') {
   if (/user already registered/i.test(msg)) return new Error('An account with this email already exists.');
   if (/email not confirmed/i.test(msg)) return new Error('Please verify your email address before signing in. Check your inbox.');
   if (/invalid login credentials/i.test(msg)) return new Error('Invalid email or password.');
+  // v6.9: GoTrue 500 when an auth.users row has NULL in a column it scans
+  // into a non-nullable Go string (supabase/auth#1940) — the seed now
+  // writes '' for those columns, and supabase/fix-login.sql repairs rows
+  // seeded by older versions. Surface a pointer instead of the raw 500.
+  if (/database error querying schema/i.test(msg)) {
+    return new Error('The sign-in service could not read this account. Run supabase/fix-login.sql in the Supabase SQL editor (it repairs the demo accounts), then try again.');
+  }
   if (/duplicate key/i.test(msg) && /hospitals/i.test(error?.details || '')) {
     return new Error('A hospital with this name already exists.');
   }
@@ -1075,6 +1082,41 @@ async function markAllHospitalNotificationsRead() {
   return { success: true };
 }
 
+// ---------- User notifications (v6.10 — every role's inbox) ----------
+
+async function listUserNotifications() {
+  await requireUid();
+  const { data, error } = await sb().from('user_notifications')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(100);
+  if (error) throw fail(error, 'Could not load notifications.');
+  // RLS: each user sees only the rows addressed to them.
+  return data || [];
+}
+
+async function markUserNotificationRead(id) {
+  await requireUid();
+  const { data, error } = await sb()
+    .from('user_notifications')
+    .update({ read: true })
+    .eq('id', id)
+    .select()
+    .single();
+  if (error) throw fail(error, 'Could not mark the notification.');
+  return data;
+}
+
+async function markAllUserNotificationsRead() {
+  await requireUid();
+  const { error } = await sb()
+    .from('user_notifications')
+    .update({ read: true })
+    .eq('read', false);
+  if (error) throw fail(error, 'Could not mark the notifications.');
+  return { success: true };
+}
+
 // ---------- Business stats ----------
 
 async function businessGetStats() {
@@ -1345,6 +1387,11 @@ export default {
   listHospitalNotifications,
   markHospitalNotificationRead,
   markAllHospitalNotificationsRead,
+
+  // v6.10: user notifications (all roles)
+  listUserNotifications,
+  markUserNotificationRead,
+  markAllUserNotificationsRead,
   businessGetStats,
 
   // records

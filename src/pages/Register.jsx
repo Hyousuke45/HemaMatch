@@ -345,7 +345,7 @@ export default function Register() {
                 className="input"
                 value={hospital.name}
                 onChange={setHospitalField('name')}
-                placeholder="e.g. Quezon City General Hospital"
+                placeholder="e.g. Valencia Medical Hospital"
                 maxLength={120}
               />
             </div>

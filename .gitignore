@@ -14,11 +14,7 @@ nohup.out
 # environment - never commit secrets
 .env
 .env.local
-<<<<<<< HEAD
 
-=======
-supabase/
->>>>>>> bcbf376b5a26146392902008c18c261e7a0bb4b0
 # platform internals
 .zscripts/
 .next/

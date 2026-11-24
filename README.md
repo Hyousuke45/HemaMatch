@@ -41,15 +41,15 @@ See **CHANGELOG.md** for the full change history.
 | Account | Email | Password | Role / notes |
 |---|---|---|---|
 | Ana Villanueva | `admin@demo.com` | `admin123` | Administrator |
-| Maria Santos | `maria@demo.com` | `maria123` | Donor, O-, NCR, **open donor listing** |
+| Maria Santos | `maria@demo.com` | `maria123` | Donor, O-, Valencia City (Bukidnon), **open donor listing** |
 | Grace Lim | `grace@demo.com` | `grace123` | Requester of an **O+ critical request** (preferred donor types **O-**) |
-| Teresita Uy | `biz.western@demo.com` | `biz12345` | **Business** — admin of Western Visayas Medical Center (Iloilo) |
-| Corazon Santiago | `biz.stmary@demo.com` | `biz12345` | **Business** — admin of St. Mary General Hospital (has a pending doctor application + notifications to review) |
-| Melinda Torres | `biz.central@demo.com` | `biz12345` | **Business** — admin of Central Luzon Medical Center |
-| Rodrigo Bautista | `biz.davao@demo.com` | `biz12345` | **Business + Doctor** — admin of Davao Regional Hospital who is also a licensed surgeon (inherits the Doctor abilities) |
-| Dr. Elena Ramos | `dr.ramos@demo.com` | `doctor123` | **Doctor** — St. Mary roster, witness on an active transaction |
-| Dr. Marco Aquino | `dr.aquino@demo.com` | `doctor123` | **Doctor** — St. Mary roster |
-| Dr. Liza Domingo | `dr.domingo@demo.com` | `doctor123` | **Doctor** — Central Luzon roster, **pending application** to St. Mary |
+| Teresita Uy | `biz.western@demo.com` | `biz12345` | **Business** — admin of Abella Midway Hospital (Valencia City) |
+| Corazon Santiago | `biz.stmary@demo.com` | `biz12345` | **Business** — admin of Valencia Adventist Medical Center (has a pending doctor application + notifications to review) |
+| Melinda Torres | `biz.central@demo.com` | `biz12345` | **Business** — admin of Valencia Medical Hospital |
+| Rodrigo Bautista | `biz.davao@demo.com` | `biz12345` | **Business + Doctor** — admin of La Viña General Hospital who is also a licensed surgeon (inherits the Doctor abilities) |
+| Dr. Elena Ramos | `dr.ramos@demo.com` | `doctor123` | **Doctor** — Valencia Adventist roster, witness on an active transaction |
+| Dr. Marco Aquino | `dr.aquino@demo.com` | `doctor123` | **Doctor** — Valencia Adventist roster |
+| Dr. Liza Domingo | `dr.domingo@demo.com` | `doctor123` | **Doctor** — Valencia Medical roster, **pending application** to Valencia Adventist |
 
 The same accounts exist in **Supabase mode** — `supabase/seed.sql` creates them with real bcrypt-hashed passwords, pre-confirmed emails, profile photos, hospital rosters, donor acceptances and notifications.
 
@@ -59,12 +59,12 @@ The same accounts exist in **Supabase mode** — `supabase/seed.sql` creates the
 ### v6 demo script (10 minutes)
 
 1. **Register** → pick each account type to see the role-specific fields (doctor: license/specialization/contact; business: hospital record) → verify email (simulated in mock mode).
-2. **Create a request** as Grace: choose blood type **O+** → the *Preferred donor blood types* checkboxes show **O- and O+** only (switch to **AB+** and all 8 appear; **O-** shows a single checkbox) → check **O-** → pick the **hospital** (required — "Not specified" no longer exists) → **St. Mary General Hospital**.
+2. **Create a request** as Grace: choose blood type **O+** → the *Preferred donor blood types* checkboxes show **O- and O+** only (switch to **AB+** and all 8 appear; **O-** shows a single checkbox) → check **O-** → pick the **hospital** (required — "Not specified" no longer exists) → **Valencia Adventist Medical Center**.
 3. Login as `biz.stmary@demo.com` → **My hospital** → the **notification inbox** shows the new request; **review the pending doctor application** (Dr. Liza Domingo — verify her license ID and contact number) → accept or reject it.
-4. Login as `maria@demo.com` → open Grace's request → **Accept as donor** → choose **Dr. Elena Ramos** (only St. Mary doctors are selectable — try picking a Davao doctor and it is refused) → the request flips to **Accepted** and the hospital is notified.
+4. Login as `maria@demo.com` → open Grace's request → **Accept as donor** → choose **Dr. Elena Ramos** (only Valencia Adventist doctors are selectable — try picking a La Viña doctor and it is refused) → the request flips to **Accepted** and the hospital is notified.
 5. Login as `dr.ramos@demo.com` → **My assignments** → the transaction appears with Maria as the donor. Open it, message the donor, then **Set Completed** (or record an outcome) — the doctor is the witness/source of truth.
 6. Login as `biz.stmary@demo.com` → **My hospital** → the acceptance notification is there; **outcome records** list the transaction with the witnessing doctor; edit the hospital **photo + description** and check the public page's gradient fade.
-7. **Hospitals** (any account): search "Davao", open a hospital — photo background, gradient fade, description under it, admin, doctors with license IDs + contact numbers → **Message hospital** → the thread header shows the hospital name; on the business admin's side the reply arrives in the same thread.
+7. **Hospitals** (any account): search "Valencia", open a hospital — photo background, gradient fade, description under it, admin, doctors with license IDs + contact numbers → **Message hospital** → the thread header shows the hospital name; on the business admin's side the reply arrives in the same thread.
 8. Login as `biz.davao@demo.com` (business + doctor) → the profile shows the **"I am also a licensed doctor"** toggle enabled → **My assignments** works for this account too (inherited Doctor abilities).
 
 ---

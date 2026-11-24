@@ -11,8 +11,8 @@ const DEMO_ACCOUNTS = [
   { label: 'Donor (Maria, O-)', email: 'maria@demo.com', password: 'maria123' },
   { label: 'Requester (Grace, AB+)', email: 'grace@demo.com', password: 'grace123' },
   { label: 'Doctor (Dr. Ramos)', email: 'dr.ramos@demo.com', password: 'doctor123' },
-  { label: 'Business (St. Mary admin)', email: 'biz.stmary@demo.com', password: 'biz12345' },
-  { label: 'Business+Doctor (Davao)', email: 'biz.davao@demo.com', password: 'biz12345' }
+  { label: 'Business (Valencia Adventist admin)', email: 'biz.stmary@demo.com', password: 'biz12345' },
+  { label: 'Business+Doctor (La Viña)', email: 'biz.davao@demo.com', password: 'biz12345' }
 ];
 
 export default function Login() {

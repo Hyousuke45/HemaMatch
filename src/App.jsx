@@ -150,8 +150,9 @@ export default function App() {
               <MyHospital />
             )}
           />
-          {/* v6.2 — full notifications tab (business), linked from the
-              My-hospital panel's "View more" and the topbar bell */}
+          {/* v6.10 — full notifications tab for EVERY role (user inbox;
+              business additionally sees their hospital inbox merged),
+              linked from the topbar bell and the sidebar */}
           <Route
             path="/notifications"
             element={app(

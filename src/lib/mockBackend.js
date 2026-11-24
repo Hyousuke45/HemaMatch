@@ -215,6 +215,24 @@ function canManageHospital(user, hospitalId) {
 
 // v4: notify a hospital — notifications land in the business admin's panel.
 // [RLS mirror] Phase 2: hospital_notifications insert via trigger/RPC.
+// v6.10: push one notification into a user's inbox (mirror of the SQL
+// notify_user()). Skips unknown recipients and the actor themselves.
+function notifyUser(recipientId, type, title, body, requestId = null, actor = null) {
+  if (!recipientId || !findProfile(recipientId)) return;
+  if (actor && recipientId === actor.id) return;
+  getDb().user_notifications.unshift({
+    id: newId('un'),
+    recipient_id: recipientId,
+    type,
+    title,
+    body,
+    request_id: requestId ?? null,
+    actor_id: actor?.id ?? null,
+    read: false,
+    created_at: nowIso()
+  });
+}
+
 function notifyHospital(hospitalId, type, title, body, requestId = null, actor = null) {
   const d = getDb();
   if (!hospitalId || !findHospital(hospitalId)) return;
@@ -913,6 +931,30 @@ async function setRequestStatus(id, status, reason = '') {
       isAdmin && !isOwner ? ' (administrator action)' : ''
     }`
   );
+
+  // v6.10: the requester and every accepted donor learn the new status.
+  if (status !== from) {
+    notifyUser(
+      r.requester_id,
+      'request_status',
+      'Your request changed status',
+      `Your ${r.blood_type} request (${r.units_needed} unit${r.units_needed > 1 ? 's' : ''}) changed status from ${from} to ${status}${reason ? ` — reason: ${reason}` : ''}.`,
+      r.id,
+      u
+    );
+    d.donor_acceptances
+      .filter((a) => a.request_id === id && a.status === 'accepted')
+      .forEach((a) =>
+        notifyUser(
+          a.donor_id,
+          'request_status',
+          'A request you accepted changed status',
+          `The ${r.blood_type} request from ${findProfile(r.requester_id)?.full_name ?? 'a requester'} you accepted changed status from ${from} to ${status}${reason ? ` — reason: ${reason}` : ''}.`,
+          r.id,
+          u
+        )
+      );
+  }
   save();
   return joinRequest(r);
 }
@@ -1000,6 +1042,37 @@ async function acceptRequestAsDonor(requestId, doctorId = null) {
       u
     );
   }
+
+  // v6.10: the requester learns a donor was found; the donor gets a
+  // confirmation of their own acceptance.
+  notifyUser(
+    r.requester_id,
+    'donor_accepted',
+    'A donor accepted your request',
+    `${u.profile.full_name} accepted your ${r.blood_type} request${doctorName ? ` — assigned doctor: ${doctorName}` : ''}.`,
+    r.id,
+    u
+  );
+  notifyUser(
+    u.id,
+    'donor_accepted',
+    'You accepted a request',
+    `You are now a donor on the ${r.blood_type} request from ${findProfile(r.requester_id)?.full_name ?? 'a requester'}${doctorName ? ` — assigned doctor: ${doctorName}` : ''}.`,
+    r.id,
+    null // v6.10: no actor -> the donor's own receipt is not skipped
+  );
+
+  // v6.10: the assigned doctor is told they are the witness.
+  if (assignedDoctorId) {
+    notifyUser(
+      assignedDoctorId,
+      'assignment',
+      'You were assigned to a donation',
+      `You are the witness doctor for the acceptance of donor ${u.profile.full_name} on the ${r.blood_type} request from ${findProfile(r.requester_id)?.full_name ?? 'a requester'}.`,
+      r.id,
+      u
+    );
+  }
   save();
   return joinAcceptance(acceptance);
 }
@@ -1030,6 +1103,18 @@ async function setAcceptanceDoctor(acceptanceId, doctorId) {
     a.id,
     `Assigned doctor changed to ${findProfile(doctorId)?.full_name}.`
   );
+
+  // v6.10: the newly assigned doctor learns they are the witness.
+  if (r) {
+    notifyUser(
+      doctorId,
+      'assignment',
+      'You were assigned to a donation',
+      `You are the witness doctor for the acceptance of donor ${findProfile(a.donor_id)?.full_name ?? 'a donor'} on the ${r.blood_type} request from ${findProfile(r.requester_id)?.full_name ?? 'a requester'}.`,
+      r.id,
+      u
+    );
+  }
   save();
   return joinAcceptance(a);
 }
@@ -1589,6 +1674,18 @@ async function hospitalSetDoctorApplicationStatus(applicationId, status, reason 
     app.id,
     `Application of ${doctor?.full_name ?? 'a doctor'} for ${hospital?.name ?? 'a hospital'} changed from ${from} to ${status}${reason ? ` — reason: ${reason}` : ''}.`
   );
+
+  // v6.10: the applicant learns the outcome.
+  if (status !== from) {
+    notifyUser(
+      app.doctor_id,
+      'doctor_application',
+      `Your hospital application was ${status}`,
+      `Your application to ${hospital?.name ?? 'a hospital'} was ${status}${reason ? ` — reason: ${reason}` : ''}.`,
+      null,
+      u
+    );
+  }
   save();
   return app;
 }
@@ -1632,6 +1729,48 @@ async function markAllHospitalNotificationsRead() {
   if (!h) throw new Error('No hospital is linked to your account.');
   getDb()
     .hospital_notifications.filter((n) => n.hospital_id === h.id)
+    .forEach((n) => {
+      n.read = true;
+    });
+  save();
+  return { success: true };
+}
+
+// ---------- User notifications (v6.10 — every role's inbox) ----------
+
+// A user's own inbox: actor + request context joined for the UI.
+async function listUserNotifications() {
+  await delay();
+  const u = requireVerified();
+  const d = getDb();
+  return d.user_notifications
+    .filter((n) => n.recipient_id === u.id)
+    .map((n) => ({
+      ...n,
+      actor_name: n.actor_id ? findProfile(n.actor_id)?.full_name ?? null : null,
+      request_blood_type: n.request_id
+        ? d.requests.find((r) => r.id === n.request_id)?.blood_type ?? null
+        : null
+    }))
+    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+}
+
+async function markUserNotificationRead(id) {
+  await delay(60);
+  const u = requireVerified();
+  const n = getDb().user_notifications.find((x) => x.id === id);
+  if (!n) throw new Error('Notification not found.');
+  if (n.recipient_id !== u.id) throw new Error('This notification is not yours.');
+  n.read = true;
+  save();
+  return n;
+}
+
+async function markAllUserNotificationsRead() {
+  await delay(60);
+  const u = requireVerified();
+  getDb()
+    .user_notifications.filter((n) => n.recipient_id === u.id)
     .forEach((n) => {
       n.read = true;
     });
@@ -1794,6 +1933,26 @@ async function createRecord({ request_id, donor_id, outcome, reason }) {
     rec.id,
     `Outcome recorded for request ${r.id}: ${outcome}${cleanReason ? ` — ${cleanReason}` : ''}`
   );
+
+  // v6.10: the donor and the requester learn the outcome.
+  if (donor_id) {
+    notifyUser(
+      donor_id,
+      'outcome',
+      'Outcome recorded for your donation',
+      `The donation for the ${r.blood_type} request was recorded as ${outcome}${cleanReason ? ` — ${cleanReason}` : ''}.`,
+      r.id,
+      u
+    );
+  }
+  notifyUser(
+    r.requester_id,
+    'outcome',
+    'Outcome recorded for your request',
+    `A ${outcome} donation record was added to your ${r.blood_type} request.`,
+    r.id,
+    u
+  );
   save();
   return joinRecord(rec);
 }
@@ -1955,6 +2114,11 @@ export default {
   listHospitalNotifications,
   markHospitalNotificationRead,
   markAllHospitalNotificationsRead,
+
+  // v6.10: user notifications (all roles)
+  listUserNotifications,
+  markUserNotificationRead,
+  markAllUserNotificationsRead,
   businessGetStats,
 
   // records

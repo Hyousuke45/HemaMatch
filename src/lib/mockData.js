@@ -22,8 +22,8 @@ export function createSeedDb() {
         full_name: 'Ana Villanueva',
         role: 'admin',
         blood_type: 'O+',
-        region: 'NCR (Metro Manila)',
-        city: 'Manila',
+        region: 'Region X (Northern Mindanao)',
+      city: 'Valencia City',
         is_available: false,
         created_at: '2026-09-01T08:00:00'
       }
@@ -38,8 +38,8 @@ export function createSeedDb() {
         full_name: 'Maria Santos',
         role: 'user',
         blood_type: 'O-',
-        region: 'NCR (Metro Manila)',
-        city: 'Quezon City',
+        region: 'Region X (Northern Mindanao)',
+      city: 'Valencia City',
         is_available: true,
         avatar_url: 'https://api.dicebear.com/9.x/avataaars/svg?seed=Maria%20Santos&backgroundColor=c1912f',
         created_at: '2026-09-03T10:15:00'
@@ -55,8 +55,8 @@ export function createSeedDb() {
         full_name: 'Juan Dela Cruz',
         role: 'user',
         blood_type: 'A+',
-        region: 'Region IV-A (CALABARZON)',
-        city: 'Antipolo',
+        region: 'Region X (Northern Mindanao)',
+      city: 'Valencia City',
         is_available: true,
         avatar_url: 'https://api.dicebear.com/9.x/avataaars/svg?seed=Juan%20Dela%20Cruz&backgroundColor=b6452c',
         created_at: '2026-09-05T14:30:00'
@@ -72,8 +72,8 @@ export function createSeedDb() {
         full_name: 'Angela Reyes',
         role: 'user',
         blood_type: 'B+',
-        region: 'NCR (Metro Manila)',
-        city: 'Makati',
+        region: 'Region X (Northern Mindanao)',
+      city: 'Valencia City',
         is_available: true,
         avatar_url: 'https://api.dicebear.com/9.x/avataaars/svg?seed=Angela%20Reyes&backgroundColor=8a3033',
         created_at: '2026-09-08T09:00:00'
@@ -89,8 +89,8 @@ export function createSeedDb() {
         full_name: 'Pedro Ramos',
         role: 'user',
         blood_type: 'B+',
-        region: 'NCR (Metro Manila)',
-        city: 'Pasig',
+        region: 'Region X (Northern Mindanao)',
+      city: 'Valencia City',
         is_available: false, // intentionally unavailable: demonstrates the availability filter
         created_at: '2026-09-10T11:45:00'
       }
@@ -105,8 +105,8 @@ export function createSeedDb() {
         full_name: 'Miguel Lopez',
         role: 'user',
         blood_type: 'AB-',
-        region: 'Region III (Central Luzon)',
-        city: 'San Fernando',
+        region: 'Region X (Northern Mindanao)',
+      city: 'Valencia City',
         is_available: false, // paused donation listing (sync rule: paused offer = not listed)
         avatar_url: 'https://api.dicebear.com/9.x/avataaars/svg?seed=Miguel%20Lopez&backgroundColor=4d5e5a',
         created_at: '2026-09-12T16:20:00'
@@ -122,8 +122,8 @@ export function createSeedDb() {
         full_name: 'Cristina Flores',
         role: 'user',
         blood_type: 'O+',
-        region: 'Region VI (Western Visayas)',
-        city: 'Iloilo City',
+        region: 'Region X (Northern Mindanao)',
+      city: 'Valencia City',
         is_available: true,
         avatar_url: 'https://api.dicebear.com/9.x/avataaars/svg?seed=Cristina%20Flores&backgroundColor=946b2d',
         created_at: '2026-09-15T08:40:00'
@@ -139,8 +139,8 @@ export function createSeedDb() {
         full_name: 'Rafael Mendoza',
         role: 'user',
         blood_type: 'A-',
-        region: 'Region XI (Davao Region)',
-        city: 'Davao City',
+        region: 'Region X (Northern Mindanao)',
+      city: 'Valencia City',
         is_available: true,
         created_at: '2026-09-18T13:05:00'
       }
@@ -155,8 +155,8 @@ export function createSeedDb() {
         full_name: 'Grace Lim',
         role: 'user',
         blood_type: 'AB+',
-        region: 'NCR (Metro Manila)',
-        city: 'Taguig',
+        region: 'Region X (Northern Mindanao)',
+      city: 'Valencia City',
         is_available: false,
         created_at: '2026-09-22T15:50:00'
       }
@@ -171,8 +171,8 @@ export function createSeedDb() {
         full_name: 'Paolo Villanueva',
         role: 'user',
         blood_type: 'O-',
-        region: 'Region IV-A (CALABARZON)',
-        city: 'Bacoor',
+        region: 'Region X (Northern Mindanao)',
+      city: 'Valencia City',
         is_available: true,
         avatar_url: 'https://api.dicebear.com/9.x/avataaars/svg?seed=Paolo%20Villanueva&backgroundColor=6b8e9e',
         created_at: '2026-10-01T10:10:00'
@@ -188,8 +188,8 @@ export function createSeedDb() {
         full_name: 'Sofia Garcia',
         role: 'user',
         blood_type: 'B-',
-        region: 'NCR (Metro Manila)',
-        city: 'Mandaluyong',
+        region: 'Region X (Northern Mindanao)',
+      city: 'Valencia City',
         is_available: true,
         created_at: '2026-10-05T12:00:00'
       }
@@ -206,8 +206,8 @@ export function createSeedDb() {
         full_name: 'Dr. Elena Ramos',
         role: 'doctor',
         blood_type: 'O+',
-        region: 'NCR (Metro Manila)',
-        city: 'Manila',
+        region: 'Region X (Northern Mindanao)',
+      city: 'Valencia City',
         is_available: false,
         avatar_url: 'https://api.dicebear.com/9.x/avataaars/svg?seed=Elena%20Ramos&backgroundColor=7a4a21',
         doctor_license_id: 'PRC-0092381',
@@ -226,8 +226,8 @@ export function createSeedDb() {
         full_name: 'Dr. Marco Aquino',
         role: 'doctor',
         blood_type: 'A-',
-        region: 'NCR (Metro Manila)',
-        city: 'Quezon City',
+        region: 'Region X (Northern Mindanao)',
+      city: 'Valencia City',
         is_available: false,
         avatar_url: 'https://api.dicebear.com/9.x/avataaars/svg?seed=Marco%20Aquino&backgroundColor=33566b',
         doctor_license_id: 'PRC-0077120',
@@ -246,8 +246,8 @@ export function createSeedDb() {
         full_name: 'Dr. Liza Domingo',
         role: 'doctor',
         blood_type: 'B+',
-        region: 'Region III (Central Luzon)',
-        city: 'San Fernando',
+        region: 'Region X (Northern Mindanao)',
+      city: 'Valencia City',
         is_available: false,
         avatar_url: 'https://api.dicebear.com/9.x/avataaars/svg?seed=Liza%20Domingo&backgroundColor=6b3b52',
         doctor_license_id: 'PRC-0055993',
@@ -268,8 +268,8 @@ export function createSeedDb() {
         full_name: 'Corazon Santiago',
         role: 'business',
         blood_type: 'O+',
-        region: 'NCR (Metro Manila)',
-        city: 'Manila',
+        region: 'Region X (Northern Mindanao)',
+      city: 'Valencia City',
         is_available: false,
         avatar_url: 'https://api.dicebear.com/9.x/avataaars/svg?seed=Corazon%20Santiago&backgroundColor=8a6d1f',
         is_doctor: false, // business admin who is NOT a doctor
@@ -286,8 +286,8 @@ export function createSeedDb() {
         full_name: 'Melinda Torres',
         role: 'business',
         blood_type: 'A+',
-        region: 'Region III (Central Luzon)',
-        city: 'San Fernando',
+        region: 'Region X (Northern Mindanao)',
+      city: 'Valencia City',
         is_available: false,
         avatar_url: 'https://api.dicebear.com/9.x/avataaars/svg?seed=Melinda%20Torres&backgroundColor=4d5e5a',
         is_doctor: false,
@@ -304,8 +304,8 @@ export function createSeedDb() {
         full_name: 'Rodrigo Bautista',
         role: 'business',
         blood_type: 'AB-',
-        region: 'Region XI (Davao Region)',
-        city: 'Davao City',
+        region: 'Region X (Northern Mindanao)',
+      city: 'Valencia City',
         is_available: false,
         avatar_url: 'https://api.dicebear.com/9.x/avataaars/svg?seed=Rodrigo%20Bautista&backgroundColor=6d2a2a',
         // Business admins inherit the Doctor abilities ONLY if they are also
@@ -327,8 +327,8 @@ export function createSeedDb() {
         full_name: 'Teresita Uy',
         role: 'business',
         blood_type: 'A-',
-        region: 'Region VI (Western Visayas)',
-        city: 'Iloilo City',
+        region: 'Region X (Northern Mindanao)',
+      city: 'Valencia City',
         is_available: false,
         avatar_url: 'https://api.dicebear.com/9.x/avataaars/svg?seed=Teresita%20Uy&backgroundColor=7a5a2a',
         is_doctor: false,
@@ -341,14 +341,14 @@ export function createSeedDb() {
     {
       id: 'h-001',
       admin_id: 'u-012', // Corazon Santiago (business)
-      name: 'St. Mary General Hospital',
-      region: 'NCR (Metro Manila)',
-      city: 'Manila',
-      address: '123 España Boulevard, Sampaloc, Manila',
-      contact_number: '(02) 8123-4567',
+      name: 'Valencia Adventist Medical Center',
+      region: 'Region X (Northern Mindanao)',
+      city: 'Valencia City',
+      address: 'Sayre Highway, Barangay Poblacion, Valencia City, Bukidnon',
+      contact_number: '(088) 828-7777',
       description:
-        'A tertiary general hospital in the heart of Manila with a 24/7 blood bank, trauma center and maternal care services. St. Mary coordinates volunteer donors with its on-duty physicians so every unit is screened and witnessed before transfusion.',
-      photo_url: 'https://picsum.photos/seed/stmaryhospital/1200/560',
+        'A faith-based non-stock, non-profit tertiary hospital in the heart of Valencia City with a 24/7 blood bank, trauma center and maternal care services. Valencia Adventist coordinates volunteer donors with its on-duty physicians so every unit is screened and witnessed before transfusion.',
+      photo_url: 'https://picsum.photos/seed/valenciaadventist/1200/560',
       status: 'verified',
       notes: 'License verified by administrator.',
       created_at: '2026-09-10T09:00:00'
@@ -356,14 +356,14 @@ export function createSeedDb() {
     {
       id: 'h-002',
       admin_id: 'u-013', // Melinda Torres (business)
-      name: 'Central Luzon Medical Center',
-      region: 'Region III (Central Luzon)',
-      city: 'San Fernando',
-      address: 'McArthur Highway, San Fernando, Pampanga',
-      contact_number: '(045) 456-7890',
+      name: 'Valencia Medical Hospital',
+      region: 'Region X (Northern Mindanao)',
+      city: 'Valencia City',
+      address: 'Sayre Highway, Barangay Poblacion, Valencia City, Bukidnon',
+      contact_number: '(088) 828-8888',
       description:
-        'The referral medical center of Central Luzon, housing a regional blood center, dialysis unit and surgical complex. Its physician-led donor program witnesses every HemaMatch transaction held on site.',
-      photo_url: 'https://picsum.photos/seed/centralclinic/1200/560',
+        'A general hospital serving Valencia City and neighboring Bukidnon municipalities, housing a blood bank, dialysis unit and surgical complex. Its physician-led donor program witnesses every HemaMatch transaction held on site.',
+      photo_url: 'https://picsum.photos/seed/valenciamedical/1200/560',
       status: 'verified',
       notes: 'License verified by administrator.',
       created_at: '2026-09-14T10:30:00'
@@ -371,14 +371,14 @@ export function createSeedDb() {
     {
       id: 'h-003',
       admin_id: 'u-014', // Rodrigo Bautista (business, also a doctor)
-      name: 'Davao Regional Hospital',
-      region: 'Region XI (Davao Region)',
-      city: 'Davao City',
-      address: 'Southern Philippine Avenue, Davao City',
-      contact_number: '(082) 222-3333',
+      name: 'La Viña General Hospital',
+      region: 'Region X (Northern Mindanao)',
+      city: 'Valencia City',
+      address: 'National Highway, Barangay La Viña, Valencia City, Bukidnon',
+      contact_number: '(088) 828-9999',
       description:
-        'Mindanao\u2019s largest government regional hospital, with an emergency blood reserve and an outpatient transfusion unit. Managed by Dr. Rodrigo Bautista, a practicing general surgeon who also witnesses donations personally.',
-      photo_url: 'https://picsum.photos/seed/davaoregional/1200/560',
+        'A general hospital in the La Viña district of Valencia City, with an emergency blood reserve and an outpatient transfusion unit. Managed by Dr. Rodrigo Bautista, a practicing general surgeon who also witnesses donations personally.',
+      photo_url: 'https://picsum.photos/seed/lavinageneral/1200/560',
       status: 'pending',
       notes: 'Awaiting license confirmation.',
       created_at: '2026-10-15T14:00:00'
@@ -386,14 +386,14 @@ export function createSeedDb() {
     {
       id: 'h-004',
       admin_id: 'u-018', // Teresita Uy (business)
-      name: 'Western Visayas Medical Center',
-      region: 'Region VI (Western Visayas)',
-      city: 'Iloilo City',
-      address: 'Quezon Street, Mandurriao, Iloilo City',
-      contact_number: '(033) 321-1234',
+      name: 'Abella Midway Hospital',
+      region: 'Region X (Northern Mindanao)',
+      city: 'Valencia City',
+      address: 'Sayre Highway, Barangay Poblacion, Valencia City, Bukidnon',
+      contact_number: '(088) 828-6666',
       description:
-        'The premiere medical center of Western Visayas, operating a regional blood bank with 24/7 transfusion services. Its physician-led donor program screens and witnesses every HemaMatch donation held on site.',
-      photo_url: 'https://picsum.photos/seed/westernvisayas/1200/560',
+        'A community hospital serving central Bukidnon from Valencia City, operating a blood bank with 24/7 transfusion services. Its physician-led donor program screens and witnesses every HemaMatch donation held on site.',
+      photo_url: 'https://picsum.photos/seed/abellamidway/1200/560',
       status: 'verified',
       notes: 'License verified by administrator.',
       created_at: '2026-09-18T10:10:00'
@@ -408,7 +408,7 @@ export function createSeedDb() {
       hospital_id: 'h-001',
       doctor_id: 'u-015', // Dr. Elena Ramos
       status: 'accepted',
-      application_note: 'Internal medicine consultant at St. Mary since 2021.',
+      application_note: 'Internal medicine consultant at Valencia Adventist since 2021.',
       reviewed_by: 'u-012',
       reviewed_at: '2026-09-12T10:00:00',
       created_at: '2026-09-11T09:00:00'
@@ -436,9 +436,9 @@ export function createSeedDb() {
     {
       id: 'hd-004',
       hospital_id: 'h-001',
-      doctor_id: 'u-017', // Dr. Liza Domingo applied to St. Mary too — PENDING demo
+      doctor_id: 'u-017', // Dr. Liza Domingo applied to Valencia Adventist too — PENDING demo
       status: 'pending',
-      application_note: 'I also hold clinic hours in Manila and can witness donations there.',
+      application_note: 'I also hold clinic hours at the Valencia City health office and can witness donations there.',
       reviewed_by: null,
       reviewed_at: null,
       created_at: '2026-10-20T09:15:00'
@@ -452,12 +452,12 @@ export function createSeedDb() {
       blood_type: 'O+',
       preferred_donor_types: ['O-'], // v4.1: from the compatible-types checkboxes
       units_needed: 3,
-      region: 'NCR (Metro Manila)',
+      region: 'Region X (Northern Mindanao)',
       hospital_id: 'h-001',
       urgency: 'critical',
       needed_by: '2026-10-24',
       description:
-        'Patient scheduled for major surgery at St. Mary General Hospital needs O+ blood. Coordination with the hospital blood bank is ongoing.',
+        'Patient scheduled for major surgery at Valencia Adventist Medical Center needs O+ blood. Coordination with the hospital blood bank is ongoing.',
       status: 'pending',
       created_at: '2026-10-18T08:30:00',
       updated_at: '2026-10-18T08:30:00'
@@ -468,12 +468,12 @@ export function createSeedDb() {
       blood_type: 'A+',
       preferred_donor_types: [],
       units_needed: 2,
-      region: 'Region VI (Western Visayas)',
+      region: 'Region X (Northern Mindanao)',
       hospital_id: 'h-004',
       urgency: 'routine',
       needed_by: null,
       description:
-        'Relative admitted at a local hospital in Iloilo needs A+ blood for a follow-up transfusion.',
+        'Relative admitted at a hospital in Valencia City needs A+ blood for a follow-up transfusion.',
       status: 'pending',
       created_at: '2026-10-19T11:00:00',
       updated_at: '2026-10-19T11:00:00'
@@ -484,12 +484,12 @@ export function createSeedDb() {
       blood_type: 'B+',
       preferred_donor_types: [],
       units_needed: 4,
-      region: 'Region III (Central Luzon)',
+      region: 'Region X (Northern Mindanao)',
       hospital_id: 'h-002',
       urgency: 'urgent',
       needed_by: '2026-10-22',
       description:
-        'Father needs B+ units for an operation at Central Luzon Medical Center. Donors matched through this app will still go through standard screening.',
+        'Father needs B+ units for an operation at Valencia Medical Hospital. Donors matched through this app will still go through standard screening.',
       status: 'accepted',
       created_at: '2026-10-14T09:15:00',
       updated_at: '2026-10-15T10:00:00'
@@ -500,11 +500,11 @@ export function createSeedDb() {
       blood_type: 'O-',
       preferred_donor_types: [],
       units_needed: 2,
-      region: 'NCR (Metro Manila)',
+      region: 'Region X (Northern Mindanao)',
       hospital_id: 'h-001',
       urgency: 'critical',
       needed_by: null,
-      description: 'Newborn niece needs O- blood at St. Mary General Hospital NICU.',
+      description: 'Newborn niece needs O- blood at Valencia Adventist Medical Center NICU.',
       status: 'completed',
       created_at: '2026-10-10T07:45:00',
       updated_at: '2026-10-12T16:00:00'
@@ -515,7 +515,7 @@ export function createSeedDb() {
       blood_type: 'AB+',
       preferred_donor_types: [],
       units_needed: 1,
-      region: 'Region IV-A (CALABARZON)',
+      region: 'Region X (Northern Mindanao)',
       hospital_id: 'h-001',
       urgency: 'routine',
       needed_by: null,
@@ -532,12 +532,12 @@ export function createSeedDb() {
       // receive from O- and A- — both are checked.
       preferred_donor_types: ['O-', 'A-'],
       units_needed: 2,
-      region: 'Region VI (Western Visayas)',
+      region: 'Region X (Northern Mindanao)',
       hospital_id: 'h-004',
       urgency: 'urgent',
       needed_by: '2026-10-27',
       description:
-        'Grandmother in Iloilo needs A- blood after surgery. Willing to coordinate donor travel.',
+        'Grandmother in Valencia City needs A- blood after surgery. Willing to coordinate donor travel.',
       status: 'pending',
       created_at: '2026-10-19T16:40:00',
       updated_at: '2026-10-19T16:40:00'
@@ -548,7 +548,7 @@ export function createSeedDb() {
       blood_type: 'B-',
       preferred_donor_types: [],
       units_needed: 3,
-      region: 'NCR (Metro Manila)',
+      region: 'Region X (Northern Mindanao)',
       hospital_id: 'h-001',
       urgency: 'critical',
       needed_by: '2026-10-21',
@@ -566,7 +566,7 @@ export function createSeedDb() {
   const donor_acceptances = [
     {
       id: 'da-001',
-      request_id: 'r-003', // Miguel's B+ request at Central Luzon Medical Center
+      request_id: 'r-003', // Miguel's B+ request at Valencia Medical Hospital
       donor_id: 'u-002', // Maria (O- universal donor)
       doctor_id: 'u-017', // Dr. Liza Domingo (h-002 roster)
       status: 'accepted',
@@ -575,7 +575,7 @@ export function createSeedDb() {
     },
     {
       id: 'da-002',
-      request_id: 'r-007', // Angela's B- request at St. Mary
+      request_id: 'r-007', // Angela's B- request at Valencia Adventist
       donor_id: 'u-002', // Maria
       doctor_id: 'u-015', // Dr. Elena Ramos (h-001 roster)
       status: 'accepted',
@@ -584,7 +584,7 @@ export function createSeedDb() {
     },
     {
       id: 'da-003',
-      request_id: 'r-004', // Sofia's completed O- request at St. Mary
+      request_id: 'r-004', // Sofia's completed O- request at Valencia Adventist
       donor_id: 'u-010', // Paolo
       doctor_id: 'u-016', // Dr. Marco Aquino (h-001 roster)
       status: 'completed',
@@ -600,7 +600,7 @@ export function createSeedDb() {
       hospital_id: 'h-001',
       type: 'new_request',
       title: 'New blood request attached to your hospital',
-      body: 'Grace Lim created a critical O+ request (3 units) for St. Mary General Hospital.',
+      body: 'Grace Lim created a critical O+ request (3 units) for Valencia Adventist Medical Center.',
       request_id: 'r-001',
       actor_id: 'u-009',
       read: false,
@@ -622,7 +622,7 @@ export function createSeedDb() {
       hospital_id: 'h-001',
       type: 'doctor_application',
       title: 'New doctor application',
-      body: 'Dr. Liza Domingo (PRC-0055993, Pediatrics) applied to join St. Mary General Hospital.',
+      body: 'Dr. Liza Domingo (PRC-0055993, Pediatrics) applied to join Valencia Adventist Medical Center.',
       request_id: null,
       actor_id: 'u-017',
       read: false,
@@ -633,7 +633,7 @@ export function createSeedDb() {
       hospital_id: 'h-002',
       type: 'new_request',
       title: 'New blood request attached to your hospital',
-      body: 'Miguel Lopez created an urgent B+ request (4 units) for Central Luzon Medical Center.',
+      body: 'Miguel Lopez created an urgent B+ request (4 units) for Valencia Medical Hospital.',
       request_id: 'r-003',
       actor_id: 'u-006',
       read: true,
@@ -673,7 +673,7 @@ export function createSeedDb() {
     { id: 'cp-002', conversation_id: 'c-001', user_id: 'u-002' },
     { id: 'cp-003', conversation_id: 'c-002', user_id: 'u-011' },
     { id: 'cp-004', conversation_id: 'c-002', user_id: 'u-010' },
-    // hospital chat: Grace <-> Corazon (St. Mary's business admin)
+    // hospital chat: Grace <-> Corazon (Valencia Adventist's business admin)
     { id: 'cp-005', conversation_id: 'c-003', user_id: 'u-009' },
     { id: 'cp-006', conversation_id: 'c-003', user_id: 'u-012' }
   ];
@@ -684,7 +684,7 @@ export function createSeedDb() {
       conversation_id: 'c-001',
       sender_id: 'u-006',
       content:
-        'Hi Maria! I saw you are an O- donor. My father needs B+ blood in San Fernando, Pampanga. O- works for him too. Would you be available this week?',
+        'Hi Maria! I saw you are an O- donor. My father needs B+ blood in Valencia City. O- works for him too. Would you be available this week?',
       created_at: '2026-10-15T10:05:30'
     },
     {
@@ -707,7 +707,7 @@ export function createSeedDb() {
       conversation_id: 'c-002',
       sender_id: 'u-011',
       content:
-        'Hi Paolo! Our niece needs O- blood at St. Mary. You are an O- donor in Bacoor — would you consider donating?',
+        'Hi Paolo! Our niece needs O- blood at Valencia Adventist. You are an O- donor in Valencia City — would you consider donating?',
       created_at: '2026-10-11T09:00:30'
     },
     {
@@ -752,40 +752,40 @@ export function createSeedDb() {
   const donation_offers = [
     {
       id: 'o-001',
-      donor_id: 'u-002', // Maria (O-, Quezon City)
-      note: 'Universal donor (O-) here. I usually donate on weekends — Quezon City or nearby Manila blood banks. Message me anytime.',
+      donor_id: 'u-002', // Maria (O-, Valencia City)
+      note: 'Universal donor (O-) here. I usually donate on weekends at blood banks around Valencia City. Message me anytime.',
       status: 'open',
       created_at: '2026-09-20T09:00:00',
       updated_at: '2026-09-20T09:00:00'
     },
     {
       id: 'o-002',
-      donor_id: 'u-003', // Juan (A+, Antipolo)
-      note: 'Willing to travel within CALABARZON and nearby Metro Manila hospitals. Prefer weekends.',
+      donor_id: 'u-003', // Juan (A+, Valencia City)
+      note: 'Willing to travel within Valencia City and nearby Bukidnon municipalities. Prefer weekends.',
       status: 'open',
       created_at: '2026-09-22T15:30:00',
       updated_at: '2026-09-22T15:30:00'
     },
     {
       id: 'o-003',
-      donor_id: 'u-004', // Angela (B+, Makati)
-      note: 'Available weekday mornings. Regular donor at St. Mary General Hospital blood bank.',
+      donor_id: 'u-004', // Angela (B+, Valencia City)
+      note: 'Available weekday mornings. Regular donor at Valencia Adventist Medical Center blood bank.',
       status: 'open',
       created_at: '2026-10-02T11:15:00',
       updated_at: '2026-10-02T11:15:00'
     },
     {
       id: 'o-004',
-      donor_id: 'u-007', // Cristina (O+, Iloilo)
-      note: 'Based in Iloilo City — happy to help patients anywhere in Western Visayas.',
+      donor_id: 'u-007', // Cristina (O+, Valencia City)
+      note: 'Based in Valencia City — happy to help patients anywhere in Bukidnon.',
       status: 'open',
       created_at: '2026-10-04T08:20:00',
       updated_at: '2026-10-04T08:20:00'
     },
     {
       id: 'o-005',
-      donor_id: 'u-010', // Paolo (O-, Bacoor)
-      note: 'O- donor in Bacoor. I can reach Makati or Taguig hospitals with a day\u2019s notice.',
+      donor_id: 'u-010', // Paolo (O-, Valencia City)
+      note: 'O- donor in Valencia City. I can reach any hospital in Bukidnon with a day\u2019s notice.',
       status: 'open',
       created_at: '2026-10-06T17:45:00',
       updated_at: '2026-10-06T17:45:00'
@@ -807,9 +807,9 @@ export function createSeedDb() {
       id: 'dr-001',
       request_id: 'r-004',
       donor_id: 'u-010', // Paolo (O-) donated for Sofia's O- request
-      doctor_id: 'u-016', // Dr. Marco Aquino witnessed it (St. Mary roster)
+      doctor_id: 'u-016', // Dr. Marco Aquino witnessed it (Valencia Adventist roster)
       outcome: 'successful',
-      reason: 'Donation completed at St. Mary General Hospital blood bank.',
+      reason: 'Donation completed at Valencia Adventist Medical Center blood bank.',
       recorded_by: 'u-001',
       created_at: '2026-10-12T16:00:00'
     },
@@ -835,7 +835,7 @@ export function createSeedDb() {
       action: 'request.created',
       entity: 'donation_requests',
       entity_id: 'r-001',
-      details: 'O+ request created (NCR, critical). St. Mary General Hospital notified.',
+      details: 'O+ request created (Valencia City, critical). Valencia Adventist Medical Center notified.',
       created_at: '2026-10-18T08:30:00'
     },
     {
@@ -895,7 +895,7 @@ export function createSeedDb() {
       action: 'acceptance.created',
       entity: 'donor_acceptances',
       entity_id: 'da-002',
-      details: 'Donor accepted request r-007 — assigned doctor: Dr. Elena Ramos (St. Mary General Hospital).',
+      details: 'Donor accepted request r-007 — assigned doctor: Dr. Elena Ramos (Valencia Adventist Medical Center).',
       created_at: '2026-10-17T08:30:00'
     },
     {
@@ -905,8 +905,123 @@ export function createSeedDb() {
       action: 'doctor_application.accepted',
       entity: 'hospital_doctors',
       entity_id: 'hd-001',
-      details: 'Dr. Elena Ramos accepted into St. Mary General Hospital.',
+      details: 'Dr. Elena Ramos accepted into Valencia Adventist Medical Center.',
       created_at: '2026-09-12T10:00:00'
+    }
+  ];
+
+  // v6.10: user notifications — every role's inbox (mirrors the SQL seed).
+  // Fixed ids; the mock backend appends live rows as events happen.
+  const user_notifications = [
+    {
+      id: 'un-001',
+      recipient_id: 'u-002', // Maria (O- donor)
+      type: 'donor_accepted',
+      title: 'You accepted a request',
+      body: 'You are now a donor on the B+ request from Miguel Lopez — assigned doctor: Dr. Liza Domingo.',
+      request_id: 'r-003',
+      actor_id: 'u-002',
+      read: false,
+      created_at: '2026-10-15T10:00:00'
+    },
+    {
+      id: 'un-002',
+      recipient_id: 'u-002', // Maria
+      type: 'donor_accepted',
+      title: 'You accepted a request',
+      body: 'You are now a donor on the B- request from Angela Reyes — assigned doctor: Dr. Elena Ramos.',
+      request_id: 'r-007',
+      actor_id: 'u-002',
+      read: true,
+      created_at: '2026-10-17T08:30:00'
+    },
+    {
+      id: 'un-003',
+      recipient_id: 'u-006', // Miguel (requester)
+      type: 'donor_accepted',
+      title: 'A donor accepted your request',
+      body: 'Maria Santos accepted your B+ request — assigned doctor: Dr. Liza Domingo.',
+      request_id: 'r-003',
+      actor_id: 'u-002',
+      read: false,
+      created_at: '2026-10-15T10:00:00'
+    },
+    {
+      id: 'un-004',
+      recipient_id: 'u-004', // Angela (requester)
+      type: 'donor_accepted',
+      title: 'A donor accepted your request',
+      body: 'Maria Santos accepted your B- request — assigned doctor: Dr. Elena Ramos.',
+      request_id: 'r-007',
+      actor_id: 'u-002',
+      read: false,
+      created_at: '2026-10-17T08:30:00'
+    },
+    {
+      id: 'un-005',
+      recipient_id: 'u-004', // Angela
+      type: 'request_status',
+      title: 'Your request changed status',
+      body: 'Your B- request (3 units) changed status from pending to accepted.',
+      request_id: 'r-007',
+      actor_id: 'u-002',
+      read: false,
+      created_at: '2026-10-17T08:30:00'
+    },
+    {
+      id: 'un-006',
+      recipient_id: 'u-009', // Grace (requester)
+      type: 'request_status',
+      title: 'Your request changed status',
+      body: 'Your O+ request (3 units) changed status from pending to pending — edited details.',
+      request_id: 'r-001',
+      actor_id: 'u-009',
+      read: false,
+      created_at: '2026-10-18T08:30:00'
+    },
+    {
+      id: 'un-007',
+      recipient_id: 'u-015', // Dr. Ramos (doctor)
+      type: 'assignment',
+      title: 'You were assigned to a donation',
+      body: 'You are the witness doctor for the acceptance of donor Maria Santos on the B- request from Angela Reyes.',
+      request_id: 'r-007',
+      actor_id: 'u-002',
+      read: false,
+      created_at: '2026-10-17T08:30:00'
+    },
+    {
+      id: 'un-008',
+      recipient_id: 'u-017', // Dr. Domingo (doctor)
+      type: 'assignment',
+      title: 'You were assigned to a donation',
+      body: 'You are the witness doctor for the acceptance of donor Maria Santos on the B+ request from Miguel Lopez.',
+      request_id: 'r-003',
+      actor_id: 'u-002',
+      read: false,
+      created_at: '2026-10-15T10:00:00'
+    },
+    {
+      id: 'un-009',
+      recipient_id: 'u-017', // Dr. Domingo
+      type: 'doctor_application',
+      title: 'Your hospital application was accepted',
+      body: 'Your application to Valencia Medical Hospital was accepted.',
+      request_id: null,
+      actor_id: 'u-013',
+      read: true,
+      created_at: '2026-10-12T11:20:00'
+    },
+    {
+      id: 'un-010',
+      recipient_id: 'u-001', // Ana (admin)
+      type: 'request_status',
+      title: 'A request changed status',
+      body: 'The B- request from Angela Reyes changed status from pending to accepted.',
+      request_id: 'r-007',
+      actor_id: 'u-002',
+      read: false,
+      created_at: '2026-10-17T08:30:00'
     }
   ];
 
@@ -916,6 +1031,7 @@ export function createSeedDb() {
     hospitals,
     hospital_doctors,
     hospital_notifications,
+    user_notifications,
     requests,
     donor_acceptances,
     conversations,

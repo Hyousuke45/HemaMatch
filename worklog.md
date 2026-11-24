@@ -251,3 +251,63 @@ Work Log:
 
 Stage Summary:
 - v6.6 complete: seed runs in every scenario (fresh, re-run, pre-existing auth rows); hospital dropdown never fails silently.
+
+---
+Task ID: 15
+Agent: main (Z.ai)
+Task: v6.7 — infinite recursion in policy for relation "conversation_participants".
+
+Work Log:
+- Reproduced in PGlite: participants_select_participant ON conversation_participants subqueried the same table in USING -> Postgres applies the table's RLS to policy subqueries -> self-re-entry -> 42P17. listConversations() (conversations + nested conversation_participants(user_id)) hits it directly; conversations/messages policies re-entered it too.
+- Fix: security-definer helper public.is_conversation_participant(uuid) placed after the messaging tables (function bodies are validated at CREATE time — first placement after is_admin() failed because the table didn't exist yet). 4 policies rewritten to call the helper: conversations_select_participants, messages_select_participants, messages_insert_participant, participants_select_participant (caller sees all membership rows of their conversations — user_id=auth.uid() was wrong, showed only own row).
+- Runtime verification (set role authenticated, auth.uid() via session GUC 'app.acting_uid' — PGlite denies CREATE FUNCTION under set role): participant sees participants=2/messages=1/conversations=1; outsider 0/0/0; outsider INSERT into messages blocked; listConversations() query shape returns both participant ids; recursion sweep over all 12 public tables = 0 errors. Table grants for authenticated added in the TEST scripts only (Supabase grants these by platform default; schema file untouched).
+- validate-schema.mjs: new [10] RLS runtime check + [11] recursion sweep; seed re-run simulation cleanup extended (delete messages/participants/conversations first — FK from conversations.created_by). Full suite passes.
+- CHANGELOG v6.7 written. Messages.jsx checked: errors render via EmptyState already.
+
+Stage Summary:
+- v6.7 complete: messaging RLS recursion eliminated; re-run schema.sql to deploy.
+
+---
+Task ID: 16
+Agent: main (Z.ai)
+Task: v6.8 — scope all demo data to Valencia City, Bukidnon, Mindanao (client request).
+
+Work Log:
+- Web-searched real Valencia City hospitals: Valencia Adventist Medical Center (Sayre Hwy, Brgy. Poblacion, 088 828-7777), Valencia Medical Hospital (Sayre Hwy, 0916-4882738), La Viña General Hospital, Abella Midway Hospital. Region X (Northern Mindanao), postal 8709.
+- 5 relocation passes (scripts/valencia-relocate*.py): seed.sql hospitals/profiles/requests/offers/notifications; mockData.js hospitals + 18 users + requests + acceptances + notifications + messages + records/logs; Login chips; README; Landing demo card; form placeholders (Profile/Register/Donate/AdminHospitals); schema.sql backfill reference. Emails kept (login credentials, not locations) — labels updated.
+- Region string everywhere: 'Region X (Northern Mindanao)'. 17-region dropdown intentionally kept (users can register from anywhere).
+- Validation: full validator PASS ([4] shows 4 Valencia hospitals, rosters 0/0/2/1); dedicated valencia-verify.mjs: 4/4 hospitals, 18/18 profiles, 3/3 requests, 28 text rows clean of old-location strings. Build PASS.
+- CHANGELOG v6.8 written.
+
+Stage Summary:
+- v6.8 complete: HemaMatch demo is now a Valencia City, Bukidnon service. Re-run seed.sql to deploy.
+
+---
+Task ID: 17
+Agent: main (Z.ai)
+Task: v6.9 — fix demo logins (doctor 500 / business invalid-credentials).
+
+Work Log:
+- Diagnosis: doctor = GoTrue "Database error querying schema" 500 (supabase/auth#1940: email_change, email_change_token_new, email_change_token_current, email_change_sent_at scanned into non-nullable Go strings; seed left them NULL). Business/Business+Doctor = instance_id copy-paste bug on the 3 v4 business rows (own user UUID instead of all-zeros instance UUID) -> lookup miss -> "Invalid email or password."
+- Fix in supabase/seed.sql: INSERT column list extended with the 4 GoTrue-scanned columns ('' x3 + epoch for the timestamptz); instance_id corrected on biz.stmary/biz.central/biz.davao; self-healing section 1c added (backfills ''/epoch, fixes instance_id, re-asserts identities) so a re-run repairs old broken DBs.
+- NEW supabase/fix-login.sql: standalone idempotent patch for the live project (repairs columns, instance_id, NULL passwords via case-when crypt map, identities; ends with verification SELECT).
+- supabaseBackend.js fail(): "database error querying schema" now maps to a friendly pointer to fix-login.sql.
+- Validation: validate-login.mjs (GoTrue-semantics simulation: instance-scoped lookup, NULL-scan columns, password, identity row) — 10/10 accounts OK on fresh seed, OK after idempotent re-seed, broken-old-shape all fail as reported, all REPAIRED by fix-login.sql alone. Full validator ALL SCHEMA CHECKS PASSED (auth stub extended with the 4 real columns). Build PASS.
+
+Stage Summary:
+- v6.9 complete: all demo logins work; run fix-login.sql on the live DB (or re-run seed.sql).
+
+---
+Task ID: 18
+Agent: main (Z.ai)
+Task: v6.10 — notifications for every role (was business-only).
+
+Work Log:
+- schema.sql: public.user_notifications (RLS select/update own; no client insert/delete) + notify_user() helper; emission in guard_request_update (requester + accepted donors, with reason), on_acceptance_created (requester + donor receipt + assigned doctor), set_acceptance_doctor (new witness), hospital_set_doctor_application_status (applicant, with reason), on_record_created (donor + requester). Donor receipt passes actor NULL so notify_user does not skip it (parity in mock).
+- seed.sql: 10 demo user_notifications rows (admin/maria/juan/angela/grace/dr.ramos/dr.domingo) so first seed run populates every bell.
+- mockBackend: notifyUser() + 5 emission points + listUserNotifications/markUserNotificationRead/markAllUserNotificationsRead; mockData 10 rows. supabaseBackend: the 3 API functions.
+- UI: Notifications.jsx all roles (business = merged user + hospital stream), NotificationList source-aware mark-read + 2 new type labels, SidebarLayout Notifications nav entry (all roles) + bell/badge for everyone (user + hospital counts), App route comment.
+- Validation: validate-user-notifications.mjs (PGlite, RLS + 5 emission events + re-run) ALL PASSED; validate-mock-notifications.mjs (node harness) ALL PASSED; validate-schema.mjs ALL PASSED (delete list gains user_notifications); validate-login.mjs still ALL PASSED; build PASS.
+
+Stage Summary:
+- v6.10 complete: every role has notifications; deploy = re-run schema.sql + seed.sql.

@@ -48,6 +48,7 @@ const NAV_SECTIONS = [
     label: 'Communicate',
     items: [
       { to: '/messages', label: 'Messages', icon: MessageCircle },
+      { to: '/notifications', label: 'Notifications', icon: Bell }, // v6.10: all roles
       { to: '/hospitals', label: 'Hospitals', icon: Building2 }
     ]
   }
@@ -60,8 +61,7 @@ function roleSections({ isAdmin, isBusiness, isDoctor }) {
     sections.push({
       label: 'Hospital',
       items: [
-        { to: '/my-hospital', label: 'My hospital', icon: Building },
-        { to: '/notifications', label: 'Notifications', icon: Bell }
+        { to: '/my-hospital', label: 'My hospital', icon: Building }
       ]
     });
   }
@@ -210,9 +210,20 @@ export default function SidebarLayout({ children }) {
   const [collapsed, setCollapsed] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
 
-  // v6.2: unread hospital notifications power the topbar bell badge
-  // (business accounts only; fails soft — the badge just stays hidden).
-  const { data: notifData } = useAsync(
+  // v6.10: unread USER notifications power the topbar bell badge for
+  // every role; business accounts also count their hospital inbox.
+  // Fails soft — the badge just stays hidden.
+  const { data: userNotifs } = useAsync(
+    async () => {
+      try {
+        return await dataService.listUserNotifications();
+      } catch {
+        return null;
+      }
+    },
+    []
+  );
+  const { data: hospNotifs } = useAsync(
     async () => {
       if (!isBusiness) return null;
       try {
@@ -223,7 +234,9 @@ export default function SidebarLayout({ children }) {
     },
     [isBusiness]
   );
-  const unreadNotifs = (notifData || []).filter((n) => !n.read).length;
+  const unreadNotifs =
+    (userNotifs || []).filter((n) => !n.read).length +
+    (isBusiness ? (hospNotifs || []).filter((n) => !n.read).length : 0);
   const menuRef = useRef(null);
   const navigate = useNavigate();
   const location = useLocation();
@@ -301,13 +314,13 @@ export default function SidebarLayout({ children }) {
             <div className="ml-auto flex items-center gap-1.5">
               <button
                 type="button"
-                onClick={() => navigate(isBusiness ? '/notifications' : '/messages')}
+                onClick={() => navigate('/notifications')}
                 className="relative rounded-[10px] p-2 text-muted transition-colors hover:bg-pale hover:text-cream"
-                aria-label={isBusiness ? 'Notifications' : 'Messages'}
+                aria-label="Notifications"
               >
                 <Bell className="h-5 w-5" strokeWidth={1.9} aria-hidden="true" />
-                {/* v6.2: unread count for business (hospital inbox) */}
-                {isBusiness && unreadNotifs > 0 && (
+                {/* v6.10: unread count for every role (user + hospital inbox) */}
+                {unreadNotifs > 0 && (
                   <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-gold px-1 text-[10px] font-bold leading-none text-white">
                     {unreadNotifs > 9 ? '9+' : unreadNotifs}
                   </span>

@@ -64,7 +64,7 @@ export default function AdminHospitals() {
             <label className="label" htmlFor="h-name">
               Name <span className="text-gold">*</span>
             </label>
-            <input id="h-name" className="input" value={form.name} onChange={set('name')} placeholder="e.g. Quezon City General Hospital" required maxLength={120} />
+            <input id="h-name" className="input" value={form.name} onChange={set('name')} placeholder="e.g. Valencia Medical Hospital" required maxLength={120} />
           </div>
           <div>
             <label className="label" htmlFor="h-region">

@@ -146,7 +146,7 @@ export default function Donate() {
                 className="input min-h-[88px]"
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
-                placeholder="e.g. I usually donate on weekends in Quezon City. Message me anytime."
+                placeholder="e.g. I usually donate on weekends in Valencia City. Message me anytime."
                 maxLength={OFFER_NOTE_MAX}
               />
               <p className="mt-1 text-xs text-muted">

@@ -4,18 +4,20 @@ import useAsync from '../hooks/useAsync';
 import dataService from '../lib/dataService';
 import NotificationList, { NOTIF_TYPES } from '../components/NotificationList';
 import { ErrorState, InlineLoader } from '../components/ui';
+import { useAuth } from '../context/AuthContext';
 import { BellRing, CheckCheck, ChevronDown, Search } from 'lucide-react';
 
-/* NOTIFICATIONS — the full notifications tab (v6.2).
-   Reached from "View more" in the My-hospital panel or the topbar bell.
-   Everything the compact panel cannot fit lives here:
-     * status filter: all / unread / read
-     * type filter: request events, donor acceptances, doctor applications
-     * free-text search over title and body
-     * newest / oldest sort
-     * expandable rows with "View details" + "Mark as read"
-     * mark-all-as-read, live unread badge
-   Business accounts only (the backend enforces it too). */
+/* NOTIFICATIONS — the full notifications tab, open to EVERY role (v6.10).
+   Reached from the topbar bell (all roles) or "View more" in the
+   My-hospital panel (business).
+   * user rows: your requests' status changes, donor acceptances,
+     doctor assignments, application outcomes, donation outcomes
+   * business accounts additionally see their HOSPITAL inbox rows,
+     merged into one stream (tagged with their hospital name)
+   * status filter: all / unread / read
+   * type filter, free-text search over title and body
+   * newest / oldest sort, expandable rows with "View details" +
+     "Mark as read", mark-all-as-read, live unread badge */
 
 const STATUS_FILTERS = [
   { value: 'all', label: 'All' },
@@ -25,10 +27,31 @@ const STATUS_FILTERS = [
 
 export default function Notifications() {
   const { state } = useLocation();
-  const { data: notifications, loading, error, reload } = useAsync(
-    () => dataService.listHospitalNotifications(),
+  const { isBusiness } = useAuth();
+
+  // v6.10: every role gets its user inbox; business users see their
+  // hospital inbox merged in (tagged with source + hospital name).
+  const { data: userNotifs, loading, error, reload } = useAsync(
+    () => dataService.listUserNotifications(),
     []
   );
+  const { data: hospitalNotifs } = useAsync(
+    async () => {
+      if (!isBusiness) return [];
+      try {
+        return await dataService.listHospitalNotifications();
+      } catch {
+        return [];
+      }
+    },
+    [isBusiness]
+  );
+
+  const notifications = useMemo(() => {
+    const mine = (userNotifs || []).map((n) => ({ ...n, source: 'user' }));
+    const hosp = (hospitalNotifs || []).map((n) => ({ ...n, source: 'hospital' }));
+    return [...mine, ...hosp];
+  }, [userNotifs, hospitalNotifs]);
   const [status, setStatus] = useState('all');
   const [type, setType] = useState('all');
   const [query, setQuery] = useState('');
@@ -62,7 +85,10 @@ export default function Notifications() {
   const markAll = async () => {
     setBusy(true);
     try {
-      await dataService.markAllHospitalNotificationsRead();
+      await dataService.markAllUserNotificationsRead();
+      if (isBusiness) {
+        await dataService.markAllHospitalNotificationsRead().catch(() => {});
+      }
       await reload();
     } finally {
       setBusy(false);
@@ -85,6 +111,7 @@ export default function Notifications() {
             <p className="text-[13px] text-muted">
               {notifications.length} total
               {unread > 0 ? ` · ${unread} unread` : ' · all caught up'}
+              {isBusiness ? ' · incl. hospital inbox' : ''}
             </p>
           </div>
         </div>

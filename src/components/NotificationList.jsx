@@ -23,12 +23,14 @@ import { classNames, formatDateTime } from '../lib/utils';
      given; filtering/sorting is the page's job)
    Both share the same expandable row component. */
 
-// Human labels for the four notification types the backend emits.
+// Human labels for the notification types the backends emit.
 export const NOTIF_TYPES = {
   new_request: 'New request',
   donor_accepted: 'Donor accepted',
   doctor_application: 'Doctor application',
-  outcome: 'Outcome record'
+  outcome: 'Outcome record',
+  request_status: 'Request status',
+  assignment: 'Doctor assignment'
 };
 
 // ---------- One expandable row ----------
@@ -39,10 +41,15 @@ function NotificationRow({ n, onMarkedRead, expandedDefault = false }) {
   const { pathname } = useLocation();
   const fromLabel = pathname === '/notifications' ? 'notifications' : 'My hospital';
 
+  // v6.10: user inbox rows route to the user's mark-read endpoint; hospital
+  // inbox rows keep the business one (source tags the merged stream).
+  const isUserNotif = n.source === 'user';
   const markRead = async () => {
     setBusy(true);
     try {
-      await dataService.markHospitalNotificationRead(n.id);
+      await (isUserNotif
+        ? dataService.markUserNotificationRead(n.id)
+        : dataService.markHospitalNotificationRead(n.id));
       onMarkedRead?.(n.id);
     } finally {
       setBusy(false);
@@ -131,7 +138,7 @@ export default function NotificationList({
     return (
       <EmptyState
         title="No notifications"
-        message="You will be notified when a requester attaches your hospital to a request, a donor accepts one, or a doctor applies to join you."
+        message="You will be notified when your requests change status, donors accept, doctors are assigned, or outcomes are recorded."
       />
     );
   }
