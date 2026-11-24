@@ -43,15 +43,19 @@ export default function Donors() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      {/* v6.4: header mirrors the requests page exactly (title → tabs row
+          with the same wrapper) so the tabs sit at the same position and
+          same size on both pages — no jump when switching. */}
+      <div className="flex flex-col gap-3">
         <div>
           <h1 className="text-2xl font-bold text-cream">Available donors</h1>
           <p className="mt-1 text-sm text-muted">
-            People who volunteered to donate. Message one directly — coordination and screening
-            details are agreed in private chat.
+            People who volunteered to donate. Message one directly — details are agreed in private chat.
           </p>
         </div>
-        <BrowseTabs />
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <BrowseTabs />
+        </div>
       </div>
 
       {/* Filters */}

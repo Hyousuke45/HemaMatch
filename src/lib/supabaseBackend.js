@@ -867,14 +867,14 @@ function subscribeMessages(conversationId, onChange) {
 // admin may edit its public profile fields.
 // ============================================================
 
-function mapHospital(h) {
+function mapHospital(h, doctorCount = null) {
   if (!h) return null;
   return {
     ...h,
     admin_name: h.admin?.full_name ?? null,
     admin_avatar_url: h.admin?.avatar_url ?? null,
     admin_is_doctor: h.admin ? actsAsDoctor(h.admin) : false,
-    doctor_count: h.doctor_count ?? null,
+    doctor_count: doctorCount ?? h.doctor_count ?? null,
     pending_applications: h.pending_applications ?? null
   };
 }
@@ -883,18 +883,39 @@ async function listHospitals(filters = {}) {
   const uid = await requireUid();
   const { data, error } = await sb()
     .from('hospitals')
-    .select(
-      '*, admin:profiles!hospitals_admin_id_fkey(full_name, avatar_url, role, is_doctor), doctor_count'
-    )
+    .select('*, admin:profiles!hospitals_admin_id_fkey(full_name, avatar_url, role, is_doctor)')
     .order('name', { ascending: true });
   if (error) throw fail(error, 'Could not load hospitals.');
+
+  // v6.5: doctor_count is NOT a column on hospitals — the old select
+  // crashed with "column hospitals.doctor_count does not exist". It is a
+  // computed field (see get_hospital_detail), so the list computes it the
+  // same way get_hospital_doctors() does: accepted roster applications,
+  // plus the business admin when they are a doctor (deduplicated against
+  // the accepted roster). RLS shows every accepted row to all signed-in
+  // users, so this one query is enough.
+  const { data: roster, error: rosterError } = await sb()
+    .from('hospital_doctors')
+    .select('hospital_id, doctor_id')
+    .eq('status', 'accepted');
+  if (rosterError) throw fail(rosterError, 'Could not load hospital rosters.');
+  const acceptedByHospital = new Map();
+  for (const row of roster || []) {
+    if (!acceptedByHospital.has(row.hospital_id)) acceptedByHospital.set(row.hospital_id, new Set());
+    acceptedByHospital.get(row.hospital_id).add(row.doctor_id);
+  }
+  const rosterSize = (h) => {
+    const accepted = acceptedByHospital.get(h.id) ?? new Set();
+    const adminOnRoster = h.admin_id && accepted.has(h.admin_id);
+    return accepted.size + (h.admin && actsAsDoctor(h.admin) && !adminOnRoster ? 1 : 0);
+  };
 
   const { data: me } = await sb().from('profiles').select('role').eq('id', uid).maybeSingle();
   const isAdmin = me?.role === 'admin';
   // Regular users see verified hospitals (plus their own while it awaits
   // verification, so the business admin can still manage it).
   let rows = isAdmin ? data || [] : (data || []).filter((h) => h.status === 'verified' || h.admin_id === uid);
-  let joined = rows.map(mapHospital);
+  let joined = rows.map((h) => mapHospital(h, rosterSize(h)));
 
   if (filters.search) {
     const q = String(filters.search).toLowerCase();

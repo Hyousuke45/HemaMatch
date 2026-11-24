@@ -20,7 +20,12 @@ export default function RequestForm() {
   const isEdit = Boolean(id);
   const navigate = useNavigate();
 
-  const { data: hospitals } = useAsync(() => dataService.listHospitals());
+  const {
+    data: hospitals,
+    loading: loadingHospitals,
+    error: hospitalsError,
+    reload: reloadHospitals
+  } = useAsync(() => dataService.listHospitals());
   const { data: existing, loading: loadingExisting, error: loadError } = useAsync(
     async () => (isEdit ? dataService.getRequest(id) : null),
     [id]
@@ -84,7 +89,7 @@ export default function RequestForm() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError(null);
-    if (!form.blood_type) return setError('Please choose the blood type needed.');
+    if (!form.blood_type) return setError('Please choose your blood type.');
     if (!form.region) return setError('Please choose a region.');
     if (!form.hospital_id)
       return setError('Please choose the hospital where the donation process will take place.');
@@ -132,49 +137,33 @@ export default function RequestForm() {
       </p>
 
       <form onSubmit={handleSubmit} className="card mt-6 space-y-5 p-6">
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div>
-            <label className="label" htmlFor="blood_type">
-              Blood type needed <span className="text-gold">*</span>
-            </label>
-            <select
-              id="blood_type"
-              className="input"
-              value={form.blood_type}
-              onChange={handleBloodTypeChange}
-              required
-            >
-              <option value="">Choose…</option>
-              {BLOOD_TYPES.map((t) => (
-                <option key={t} value={t}>
-                  {t}
-                </option>
-              ))}
-            </select>
-            {form.blood_type && (
-              <p className="mt-1 text-xs text-muted">
-                Patients with {form.blood_type} can receive from:{' '}
-                <span className="font-semibold text-cream/70">
-                  {compatibleDonors.join(', ')}
-                </span>
-              </p>
-            )}
-          </div>
-          <div>
-            <label className="label" htmlFor="units_needed">
-              Units needed <span className="text-gold">*</span>
-            </label>
-            <input
-              id="units_needed"
-              type="number"
-              min="1"
-              max="10"
-              className="input"
-              value={form.units_needed}
-              onChange={(e) => setForm((f) => ({ ...f, units_needed: Number(e.target.value) }))}
-              required
-            />
-          </div>
+        {/* v6.4: label renamed from "Blood type needed" — this is the
+            PATIENT's own blood type, and the compatible donor types belong
+            directly beneath it, ABOVE "Units needed". */}
+        <div>
+          <label className="label" htmlFor="blood_type">
+            My blood type <span className="text-gold">*</span>
+          </label>
+          <select
+            id="blood_type"
+            className="input"
+            value={form.blood_type}
+            onChange={handleBloodTypeChange}
+            required
+          >
+            <option value="">Choose…</option>
+            {BLOOD_TYPES.map((t) => (
+              <option key={t} value={t}>
+                {t}
+              </option>
+            ))}
+          </select>
+          {form.blood_type && (
+            <p className="mt-1 text-xs text-muted">
+              Patients with {form.blood_type} can receive from:{' '}
+              <span className="font-semibold text-cream/70">{compatibleDonors.join(', ')}</span>
+            </p>
+          )}
         </div>
 
         {/* One checkbox per blood type that can donate to the patient —
@@ -207,16 +196,35 @@ export default function RequestForm() {
             </div>
           ) : (
             <p className="mt-1 text-xs text-muted">
-              Choose the blood type needed first — the compatible donor types appear here.
+              Choose your blood type above — the compatible donor types appear here.
             </p>
           )}
           <p className="mt-1 text-xs text-muted">
             {form.blood_type
               ? `Only the ${compatibleDonors.length} blood type${
                   compatibleDonors.length === 1 ? '' : 's'
-                } compatible with the patient appear here; checked types rank first in matching.`
+                } compatible with ${form.blood_type} appear here; checked types rank first in matching.`
               : 'Leave all unchecked to accept any compatible donor.'}
           </p>
+        </div>
+
+        {/* v6.4: Units needed moved below the compatible-types block so the
+            blood-type group reads top to bottom: my type → who can donate to
+            me → how many units. */}
+        <div>
+          <label className="label" htmlFor="units_needed">
+            Units needed <span className="text-gold">*</span>
+          </label>
+          <input
+            id="units_needed"
+            type="number"
+            min="1"
+            max="10"
+            className="input"
+            value={form.units_needed}
+            onChange={(e) => setForm((f) => ({ ...f, units_needed: Number(e.target.value) }))}
+            required
+          />
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2">
@@ -252,20 +260,36 @@ export default function RequestForm() {
           <label className="label" htmlFor="hospital_id">
             Hospital <span className="text-gold">*</span>
           </label>
-          <select
-            id="hospital_id"
-            className="input"
-            value={form.hospital_id}
-            onChange={set('hospital_id')}
-            required
-          >
-            <option value="">Choose…</option>
-            {verifiedHospitals.map((h) => (
-              <option key={h.id} value={h.id}>
-                {h.name} — {h.city || h.region}
-              </option>
-            ))}
-          </select>
+          {hospitalsError ? (
+            <div className="input flex items-center justify-between gap-3 border-red-400/60 text-sm">
+              <span className="text-red-300">Could not load hospitals — {hospitalsError}</span>
+              <button type="button" className="btn-secondary shrink-0" onClick={() => reloadHospitals()}>
+                Retry
+              </button>
+            </div>
+          ) : loadingHospitals ? (
+            <div className="input text-sm text-muted">Loading hospitals…</div>
+          ) : verifiedHospitals.length === 0 ? (
+            <div className="input text-sm text-muted">
+              No verified hospitals yet — an administrator has to verify a hospital before requests
+              can name it. Check back shortly.
+            </div>
+          ) : (
+            <select
+              id="hospital_id"
+              className="input"
+              value={form.hospital_id}
+              onChange={set('hospital_id')}
+              required
+            >
+              <option value="">Choose…</option>
+              {verifiedHospitals.map((h) => (
+                <option key={h.id} value={h.id}>
+                  {h.name} — {h.city || h.region}
+                </option>
+              ))}
+            </select>
+          )}
           <p className="mt-1 text-xs text-muted">
             {selectedHospital
               ? `${selectedHospital.name} will be notified about this request — the donation process happens there, witnessed by its assigned doctors.`

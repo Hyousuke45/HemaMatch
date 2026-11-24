@@ -1,6 +1,9 @@
 # HemaMatch — Change Report
 
-**v6.3 — November 21, 2026** (latest) · dashboard declutter: donor-profile card removed, stats condensed into one card, quick actions rebalanced (icon beside label on mobile, 6 columns)
+**v6.6 — November 24, 2026** (latest) · seed.sql FK crash fixed (explicit idempotent profiles insert) + the empty hospital dropdown explained & fixed with visible error/empty states
+**v6.5 — November 24, 2026** · last "blood type needed" wording removed; hospitals list crash (phantom doctor_count column) fixed; schema.sql validated statement-by-statement in a real Postgres and made re-runnable
+**v6.4 — November 21, 2026** · blood-type labelling clarified (form + request panel), browse tabs locked to equal size, New-request button moved below the tabs
+**v6.3 — November 21, 2026** · dashboard declutter: donor-profile card removed, stats condensed into one card, quick actions rebalanced (icon beside label on mobile, 6 columns)
 **v6.2 — November 21, 2026** · dashboard typography + redesigned hospital notifications (concise → expandable → full tab), origin-aware back navigation
 **v6.1 — November 19, 2026** · mobile-first navigation restored per client feedback: bottom tab bar on phones, desktop sidebar untouched
 **v6 — November 19, 2026** · global UI/UX redesign per the client's design instructions: spec palette, sidebar + topbar application shell, Lucide icons, role dashboards with statistics
@@ -15,6 +18,154 @@
 
 
 
+
+
+
+
+---
+
+# HemaMatch — Change Report (v6.6)
+
+**Date:** November 24, 2026 · **Scope:** seed.sql reliability + request-form hospital dropdown UX.
+
+## 1. The seed crash: `hospitals_admin_id_fkey ... not present in table "profiles"`
+
+Root cause: the seed inserted `auth.users` rows with `ON CONFLICT (id) DO
+NOTHING` and relied on the `handle_new_user` **trigger** to create each
+profile. When an auth row already existed (an earlier partial seed run, or a
+`public`-schema reset while `auth.users` persisted), the INSERT was skipped —
+so the trigger never fired, no profile row was created, and the hospitals
+INSERT died on the foreign key to `profiles`.
+
+Fix: section 1b now inserts all 18 `public.profiles` rows **explicitly**
+(same values the trigger would write: role from account_type, doctor license
+fields for doctor accounts) with `ON CONFLICT (id) DO NOTHING`. The seed no
+longer depends on trigger timing in any scenario, and the enrichment UPDATEs
+that follow apply in every case.
+
+Verified in the embedded-Postgres validator with a new check that reproduces
+the exact crashed state (auth rows present, `public.profiles` empty): the
+seed now completes — profiles=18, hospitals=4, roster=4, requests=3.
+
+## 2. The empty hospital dropdown
+
+Two stacked causes:
+
+- **Primary:** the seed crash above stopped the script *before* the
+  hospitals were inserted — nothing verified existed to list. With the seed
+  fixed, the dropdown populates again.
+- **Secondary (UX):** if `listHospitals()` failed or returned nothing, the
+  form silently rendered an empty `<select>` with no feedback. The dropdown
+  now has three explicit states: a **loading** line, an **error box with the
+  reason and a Retry button**, and a friendly **empty state** ("No verified
+  hospitals yet — an administrator has to verify a hospital before requests
+  can name it"). All three states were verified in the browser.
+
+**Also verified:** normal state lists the verified hospitals
+(St. Mary — Manila, Central Luzon — San Fernando, Western Visayas — Iloilo
+City); production build passes.
+
+---
+
+# HemaMatch — Change Report (v6.5)
+
+**Date:** November 24, 2026 · **Scope:** client round 6 — wording + a live-database crash + schema hardening.
+
+## 1. "Blood type needed" — gone for good
+
+The v6.4 rename missed one string the user still saw: the form's validation
+error on submit ("Please choose the blood type needed."). It now reads
+"Please choose your blood type." A full-project sweep confirms no
+user-visible "type needed" wording remains (form labels, helpers, request
+panel, cards, validation).
+
+## 2. Live mode crashed on the hospitals directory
+
+`column hospitals.doctor_count does not exist` — `listHospitals()` selected
+`doctor_count` as if it were a real column of `hospitals`. It never was: it
+is a computed field of the `get_hospital_detail` RPC. The select now drops
+the phantom column and the count is computed the same way the RPC computes
+it: one query over `hospital_doctors` (accepted rows, RLS-readable by every
+signed-in user), plus the business admin when they are a doctor and not
+already on the roster.
+
+## 3. Schema.sql validated in a real Postgres, then fixed
+
+The whole file was executed statement-by-statement in an embedded Postgres
+(PGlite) with a Supabase `auth` stub, then run a second time to test
+re-runnability. Both runs pass now. Real bugs this surfaced and their fixes:
+
+- **Forward references.** The donation_requests policies referenced
+  `donor_acceptances`, and a section-8 index referenced `donation_offers`
+  — both tables were only created hundreds of lines later, so a fresh
+  database hit "relation does not exist". The 11.2 donor-acceptances block
+  now lives right after the donation_requests table; the offers index moved
+  next to its table.
+- **Business signup crash.** `handle_new_user()` inserted a hospital with a
+  NULL name for business accounts without hospital metadata (the seeded demo
+  admins) — NOT NULL violation. The trigger now skips hospital creation
+  when no hospital_name metadata exists.
+- **Reserved word.** `protect_role_column()` declared a plpgsql variable
+  named `current_role`, shadowing PostgreSQL's CURRENT_ROLE keyword.
+  Renamed to `v_actor_role`.
+- **Re-runnability.** 26 `create policy` statements had no
+  `drop policy if exists` guards and two functions lacked `or replace` —
+  re-running the schema on a live database failed 28 times. All guarded
+  now (and `alter publication supabase_realtime` is wrapped in a
+  pg_publication existence check).
+
+The validator itself is kept as
+`scripts/validate-schema.mjs` (runs schema.sql + seed.sql + smoke tests +
+double-run; auth stub included, pgcrypto stubbed locally only).
+
+**Verified in-browser:** hospitals directory renders with doctor counts;
+request form submits with the new validation text; "My blood type" first
+label; production build passes.
+
+---
+
+# HemaMatch — Change Report (v6.4)
+
+**Date:** November 21, 2026 · **Scope:** client round 5 — blood-type labelling and browse-tab stability.
+
+## What changed
+
+1. **Request form — "Blood type needed" renamed to "My blood type".** The old label
+   read like the type being requested was something you pick from a list of "needed"
+   types. This is the patient's own blood type. The compatible-donor display moved
+   with it: the helper line and the "Preferred donor blood types" checkbox group now
+   sit directly beneath "My blood type", and "Units needed" moved below that — the
+   form reads as one group: my type → who can donate to me → how many units.
+
+2. **Request panel shows both, explicitly.** The request detail header now reads
+   "Blood type A- · can receive from O-, A-" under the title, and the details list
+   has separate rows: "Blood type (patient)" and "Blood types that can donate
+   (ABO/Rh)". The browse cards got the same one-line treatment ("A- can receive
+   from O-, A-"), so the patient's type and the needed donor types are never
+   confused anywhere.
+
+3. **Browse tab buttons never change size.** The two segmented-control buttons
+   ("Blood requests" / "Available donors") are now equal cells of one CSS grid with
+   a fixed min-height instead of flex items sized by their content — identical
+   width and height on both pages, in both active and inactive states, on mobile
+   and desktop.
+
+4. **"+ New request" moved below the tabs.** It used to sit top-right on the
+   requests page only, so switching to "Available donors" removed it and the tab
+   row jumped upward. Both pages now share the same header structure (title → tabs
+   row), the button sits under the tabs on the requests page, and the tabs render
+   at the exact same position on both pages (verified pixel-identical: same Y, same
+   175×44 mobile / 169×44 desktop button size, same wrapper). The donors page
+   subtitle was shortened so both headers wrap identically.
+
+**No backend or schema changes.**
+
+**Verified in-browser:** 390px and 1280px — tab buttons equal size and same
+position on both pages; New request below the tabs (mobile, full-width) and beside
+them (desktop, same row); form label order My blood type → Preferred donor blood
+types → Units needed with the compatible-types helper under the select; request
+panel header line, both dl rows and the card line present; "Blood type needed"
+absent everywhere; no horizontal overflow. Production build passes.
 
 ---
 

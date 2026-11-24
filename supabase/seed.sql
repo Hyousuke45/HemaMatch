@@ -19,6 +19,8 @@
 --      hospital doctor applications and hospital notifications.
 --
 -- The seed is idempotent: fixed UUIDs + ON CONFLICT DO NOTHING, so it can
+-- v6.6: profiles are inserted explicitly (not via the signup trigger), so a
+-- re-run works even when auth.users rows already existed.
 -- be re-run safely. DEMO ACCOUNTS ONLY — never reuse these passwords in
 -- a real deployment.
 -- ============================================================
@@ -111,6 +113,36 @@ select
 from auth.users u
 where u.email like '%@demo.com'
   and not exists (select 1 from auth.identities i where i.user_id = u.id and i.provider = 'email');
+
+-- ------------------------------------------------------------
+-- 1b. Profiles — inserted EXPLICITLY (idempotent), not left to the
+--     handle_new_user trigger: ON CONFLICT (id) DO NOTHING above skips
+--     the trigger whenever an auth row already exists (re-run after a
+--     partial seed, or a public-schema reset while auth.users
+--     persisted), which used to crash the hospitals insert with
+--     "hospitals_admin_id_fkey ... not present in table profiles".
+--     Values mirror the trigger exactly; the UPDATEs below then enrich.
+-- ------------------------------------------------------------
+insert into public.profiles (id, full_name, role, is_doctor, doctor_license_id, specialization, contact_number) values
+  ('00000000-0000-0000-0000-000000000001', 'Ana Villanueva',   'user',     false, null,        null,                 null),
+  ('00000000-0000-0000-0000-000000000002', 'Maria Santos',     'user',     false, null,        null,                 null),
+  ('00000000-0000-0000-0000-000000000003', 'Juan Dela Cruz',   'user',     false, null,        null,                 null),
+  ('00000000-0000-0000-0000-000000000004', 'Angela Reyes',     'user',     false, null,        null,                 null),
+  ('00000000-0000-0000-0000-000000000005', 'Pedro Ramos',      'user',     false, null,        null,                 null),
+  ('00000000-0000-0000-0000-000000000006', 'Miguel Lopez',     'user',     false, null,        null,                 null),
+  ('00000000-0000-0000-0000-000000000007', 'Cristina Flores',  'user',     false, null,        null,                 null),
+  ('00000000-0000-0000-0000-000000000008', 'Rafael Mendoza',   'user',     false, null,        null,                 null),
+  ('00000000-0000-0000-0000-000000000009', 'Grace Lim',        'user',     false, null,        null,                 null),
+  ('00000000-0000-0000-0000-00000000000a', 'Paolo Villanueva', 'user',     false, null,        null,                 null),
+  ('00000000-0000-0000-0000-00000000000b', 'Sofia Garcia',     'user',     false, null,        null,                 null),
+  ('00000000-0000-0000-0000-00000000000c', 'Corazon Santiago', 'business', false, null,        null,                 null),
+  ('00000000-0000-0000-0000-00000000000d', 'Melinda Torres',   'business', false, null,        null,                 null),
+  ('00000000-0000-0000-0000-00000000000e', 'Rodrigo Bautista', 'business', false, null,        null,                 null),
+  ('00000000-0000-0000-0000-000000000012', 'Teresita Uy',      'business', false, null,        null,                 null),
+  ('00000000-0000-0000-0000-00000000000f', 'Dr. Elena Ramos',  'doctor',   false, 'PRC-0092381', 'Internal Medicine', '0917-123-4567'),
+  ('00000000-0000-0000-0000-000000000010', 'Dr. Marco Aquino','doctor',   false, 'PRC-0077120', 'Hematology',        '0918-555-1234'),
+  ('00000000-0000-0000-0000-000000000011', 'Dr. Liza Domingo', 'doctor',   false, 'PRC-0055993', 'Pediatrics',        '0920-777-8899')
+on conflict (id) do nothing;
 
 -- ------------------------------------------------------------
 -- 2. Profiles (created by the trigger; enrich with donor data)

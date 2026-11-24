@@ -27,19 +27,23 @@ export default function Requests() {
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-3">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h1 className="text-2xl font-bold text-cream">Blood donation requests</h1>
-            <p className="mt-1 text-sm text-muted">
-              All requests are visible to signed-in users. Choose one to view details and message the requester.
-            </p>
-          </div>
+        <div>
+          <h1 className="text-2xl font-bold text-cream">Blood donation requests</h1>
+          <p className="mt-1 text-sm text-muted">
+            All requests are visible to signed-in users. Choose one to view details and message the requester.
+          </p>
+        </div>
+        {/* v3: browse requests or browse donors who offered to donate.
+            v6.4: the tabs come FIRST and the New-request button sits BELOW
+            them — switching tabs never moves the button (it is absent on the
+            donors page, which used to shift the tab row up when leaving
+            /requests). Both pages now share: title → tabs → action. */}
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <BrowseTabs />
           <Link to="/requests/new" className="btn-primary">
             + New request
           </Link>
         </div>
-        {/* v3: browse requests or browse donors who offered to donate */}
-        <BrowseTabs />
       </div>
 
       {/* Filters */}

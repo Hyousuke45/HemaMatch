@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { BloodTypeBadge, StatusBadge } from './ui';
 import { formatDate } from '../lib/utils';
-import { URGENCY } from '../lib/constants';
+import { URGENCY, donorTypesFor } from '../lib/constants';
 import { MapPin, Building2 } from 'lucide-react';
 
 // Compact card for a donation request, used on the browse page and dashboard.
@@ -26,6 +26,13 @@ export default function RequestCard({ request }) {
         </div>
         <StatusBadge status={request.status} />
       </div>
+
+      {/* v6.4: the patient's blood type AND the types that can donate to
+          them, side by side — no confusion about which is which. */}
+      <p className="mt-3 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-muted">
+        <span className="font-semibold text-cream/80">{request.blood_type}</span> can receive from
+        <span className="font-semibold text-cream/80">{donorTypesFor(request.blood_type).join(', ')}</span>
+      </p>
 
       <p className="mt-3 line-clamp-2 text-sm leading-relaxed text-muted">
         {request.description || 'No additional details provided.'}

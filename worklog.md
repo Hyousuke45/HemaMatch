@@ -196,3 +196,58 @@ Work Log:
 
 Stage Summary:
 - v6.3 complete: dashboard decluttered — no redundant donor-profile card, one condensed stats card, balanced side-by-side quick-action pills on mobile.
+
+---
+Task ID: 12
+Agent: main (Z.ai)
+Task: v6.4 — blood-type labelling (form + panel) and browse-tab stability.
+
+Work Log:
+- RequestForm.jsx: label "Blood type needed" → "My blood type"; restructured the top of the form: blood-type select (with compatible-types helper) is now its own full-width block, followed by the preferred-donor checkbox group, then "Units needed" as its own block (was side-by-side with blood type). Helper texts reworded ("Choose your blood type above…", "compatible with ${type}").
+- RequestDetail.jsx: header subtitle adds "Blood type X · can receive from …" line; dl split into "Blood type (patient)" row (badge + type) and "Blood types that can donate (ABO/Rh)" row (kept the Prefers chip).
+- RequestCard.jsx: added one-line "X can receive from …" under the title row; imported donorTypesFor.
+- BrowseTabs.jsx: container flex → grid grid-cols-2 gap-2 sm:max-w-md; tab class loses flex-1/sm:flex-none, gains flex + leading-snug; icons shrink-0. Both buttons now always equal width/height regardless of label or state.
+- Requests.jsx: header restructured to title → (tabs + New request) row; New request sits BELOW the tabs (mobile: full width; desktop: same row, right side).
+- Donors.jsx: header mirrors the requests page structure; subtitle shortened so the header wraps to the same number of lines → tabs land at identical Y on both pages.
+- Verified (390 + 1280): tab buttons 175x44 mobile / 169x44 desktop, equal on both pages, tablist Y=177 mobile / Y=165 desktop on BOTH pages; New request below tabs on mobile, beside on desktop; form label order correct; O+ helper "Patients with O+ can receive from: O-, O+"; card line + detail rows present; no "Blood type needed" anywhere; no overflow. 3 screenshots (v64-requests-mobile, v64-form-mobile, v64-requests-desktop).
+- CHANGELOG v6.4 entry; bun run build passes; zip repackaged.
+
+Stage Summary:
+- v6.4 complete: blood-type semantics clear in form and panel; tab buttons locked to equal size; no layout jump when switching browse tabs.
+
+---
+Task ID: 13
+Agent: main (Z.ai)
+Task: v6.5 — final "blood type needed" removal + hospitals.doctor_count crash + schema.sql hardening.
+
+Work Log:
+- RequestForm.jsx: validation error "Please choose the blood type needed." → "Please choose your blood type." (the last user-visible occurrence; sweep confirms none left).
+- supabaseBackend.js listHospitals(): removed doctor_count from the .select() (it is not a hospitals column — get_hospital_detail computes it); now one hospital_doctors (status=accepted) query builds per-hospital sets and rosterSize() mirrors the RPC's counting (accepted roster + admin-doctor if not already on roster). mapHospital takes the computed count.
+- schema.sql fixes (validated in PGlite, embedded Postgres, statement-by-statement + seed + double-run):
+  * protect_role_column(): plpgsql var current_role (reserved keyword) → v_actor_role.
+  * Section 11.2 (donor_acceptances table + policies + triggers + guards) moved before the donation_requests policies that reference it (was "relation does not exist" on a fresh DB). Leftover fragments cleaned by hand.
+  * idx_offers_status moved from section 8 to beside donation_offers creation in 10.1.
+  * alter publication supabase_realtime wrapped in do $$ existence-check + duplicate_object trap.
+  * handle_new_user(): business accounts without hospital_name metadata no longer insert a NULL-named hospital (NOT NULL violation with the seeded demo admins).
+  * 26 create policy statements now preceded by drop policy if exists guards; is_admin() and is_hospital_admin() now create or replace.
+- scripts/validate-schema.mjs: full validator (auth.users/auth.identities stubs incl. platform columns, roles authenticated/anon/service_role, pgcrypto crypt/gen_salt stubs for seed; smoke tests get_hospital_detail/get_hospital_doctors; confirms hospitals.doctor_count is not a column; double-run idempotency). ALL CHECKS PASS.
+- Browser verify: login as donor; /hospitals shows 4 hospitals + doctor counts; /requests/new label order My blood type → Preferred donor blood types → Units needed; empty blood-type submit (native validation bypassed) shows "Please choose your blood type."; bun run build passes.
+
+Stage Summary:
+- v6.5 complete: no "blood type needed" wording anywhere; live-mode hospitals list fixed; schema.sql + seed.sql run clean on a fresh database AND re-run cleanly.
+
+---
+Task ID: 14
+Agent: main (Z.ai)
+Task: v6.6 — seed FK crash (hospitals_admin_id_fkey) + empty hospital dropdown.
+
+Work Log:
+- Root cause of the seed error: auth.users insert uses ON CONFLICT (id) DO NOTHING; when an auth row pre-exists (partial run / public reset with auth intact), the handle_new_user trigger never fires, profiles are missing, and the hospitals insert dies on hospitals_admin_id_fkey. The empty hospital dropdown was the downstream symptom (seed died before hospitals) plus silent UI on empty/failed loads.
+- seed.sql: new section 1b inserts all 18 public.profiles rows explicitly (mirror of the trigger: role from account_type, doctor license/specialization/contact for doctor accounts) with ON CONFLICT (id) DO NOTHING, before hospitals. Idempotent in all trigger states.
+- RequestForm.jsx: hospitals dropdown now has loading / error (+ Retry button, reload from useAsync) / empty ("No verified hospitals yet...") / normal states; no more silent empty select. useAsync already exposed loading/error/reload.
+- validate-schema.mjs: new check [9] reproduces the user's exact crash state (delete public.* rows, keep auth.users) and re-runs the full seed — PASS: profiles=18 hospitals=4 roster=4 requests=3. Fresh run + re-run + double-schema-run all still PASS.
+- Browser verify (agent-browser): dropdown normal = 4 options (3 verified hospitals + Choose); error state simulated by breaking listHospitals -> "Could not load hospitals..." + Retry renders, select hidden; empty state simulated via mockData hospital statuses -> pending + cleared localStorage -> "No verified hospitals yet..." renders. Restored files after tests; bun run build passes.
+- Screenshot: download/v6-screenshots/v66-hospital-dropdown-mobile.png.
+
+Stage Summary:
+- v6.6 complete: seed runs in every scenario (fresh, re-run, pre-existing auth rows); hospital dropdown never fails silently.

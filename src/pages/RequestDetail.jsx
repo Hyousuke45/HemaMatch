@@ -204,10 +204,18 @@ export default function RequestDetail() {
             <div className="flex items-center gap-4">
               <BloodTypeBadge type={request.blood_type} size="lg" />
               <div>
+                {/* v6.4: patient type AND compatible donor types shown together
+                    in the header so there is no confusion about which is which. */}
                 <h1 className="text-xl font-bold text-cream">
                   {request.units_needed} {request.units_needed === 1 ? 'unit' : 'units'} of{' '}
                   {request.blood_type} blood
                 </h1>
+                <p className="mt-0.5 text-sm text-muted">
+                  Blood type {request.blood_type} · can receive from{' '}
+                  <span className="font-semibold text-cream/80">
+                    {donorTypesFor(request.blood_type).join(', ')}
+                  </span>
+                </p>
                 <p className="text-sm text-muted">
                   {request.region} · created {formatDate(request.created_at)}
                 </p>
@@ -260,8 +268,15 @@ export default function RequestDetail() {
               <dt className="text-muted">Needed by</dt>
               <dd className="mt-0.5 font-medium text-cream">{formatDate(request.needed_by)}</dd>
             </div>
+            <div>
+              <dt className="text-muted">Blood type (patient)</dt>
+              <dd className="mt-0.5 flex items-center gap-2 font-medium text-cream">
+                <BloodTypeBadge type={request.blood_type} />
+                <span>{request.blood_type}</span>
+              </dd>
+            </div>
             <div className="sm:col-span-2">
-              <dt className="text-muted">Compatible donor types (ABO/Rh)</dt>
+              <dt className="text-muted">Blood types that can donate (ABO/Rh)</dt>
               <dd className="mt-0.5 font-medium text-cream">
                 {donorTypesFor(request.blood_type).join(', ')}
                 {preferredTypes.length > 0 && (

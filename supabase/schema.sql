@@ -93,7 +93,11 @@ begin
     nullif(new.raw_user_meta_data->>'doctor_contact_number', '')
   );
 
-  if v_role = 'business' then
+  -- v6.5: a business account WITHOUT hospital metadata (e.g. the seeded
+  -- demo admins, whose hospitals are inserted directly) must not crash
+  -- the signup trigger on the hospitals NOT NULL columns. Skip hospital
+  -- creation when no hospital_name was supplied.
+  if v_role = 'business' and nullif(new.raw_user_meta_data->>'hospital_name', '') is not null then
     insert into public.hospitals (admin_id, name, region, city, address, contact_number, description, status)
     values (
       new.id,
@@ -133,11 +137,11 @@ security definer
 set search_path = public
 as $$
 declare
-  current_role text;
+  v_actor_role text;
 begin
   if new.role <> old.role then
-    select role into current_role from public.profiles where id = auth.uid();
-    if coalesce(current_role, 'user') <> 'admin' then
+    select role into v_actor_role from public.profiles where id = auth.uid();
+    if coalesce(v_actor_role, 'user') <> 'admin' then
       new.role := old.role; -- silently revert; only admins may change roles
     end if;
   end if;
@@ -167,10 +171,14 @@ create trigger touch_updated_at
   for each row execute function public.set_updated_at();
 
 -- RLS policies for profiles
+-- v6.5: guard so the schema can be safely re-run.
+drop policy if exists "profiles_select_authenticated" on public.profiles;
 create policy "profiles_select_authenticated"
   on public.profiles for select to authenticated
   using (true); -- donor directory: name, blood type, region, availability only. Email lives in auth and is never exposed.
 
+-- v6.5: guard so the schema can be safely re-run.
+drop policy if exists "profiles_update_own" on public.profiles;
 create policy "profiles_update_own"
   on public.profiles for update to authenticated
   using (id = auth.uid())
@@ -212,11 +220,13 @@ create trigger touch_updated_at
   before update on public.hospitals
   for each row execute function public.set_updated_at();
 
+-- v6.5: guard so the schema can be safely re-run.
+drop policy if exists "hospitals_select_authenticated" on public.hospitals;
 create policy "hospitals_select_authenticated"
   on public.hospitals for select to authenticated
   using (true); -- regular UI filters to verified client-side; admin UI shows all
 
-create function public.is_admin()
+create or replace function public.is_admin()
 returns boolean
 language sql
 stable
@@ -227,7 +237,7 @@ as $$
 $$;
 
 -- The hospital's own business admin.
-create function public.is_hospital_admin(hospital_id uuid)
+create or replace function public.is_hospital_admin(hospital_id uuid)
 returns boolean
 language sql
 stable
@@ -242,9 +252,13 @@ $$;
 
 -- Hospital records are created ONLY by administrators (platform) or by
 -- the handle_new_user trigger (business registration).
+-- v6.5: guard so the schema can be safely re-run.
+drop policy if exists "hospitals_insert_admin" on public.hospitals;
 create policy "hospitals_insert_admin" on public.hospitals for insert to authenticated with check (public.is_admin());
 -- Updates: platform admins (full) OR the hospital's own business admin
 -- (public profile fields only — guarded by the protect_hospital_fields trigger).
+-- v6.5: guard so the schema can be safely re-run.
+drop policy if exists "hospitals_update_admin" on public.hospitals;
 create policy "hospitals_update_admin"
   on public.hospitals for update to authenticated
   using (public.is_admin() or public.is_hospital_admin(id))
@@ -379,12 +393,174 @@ create trigger touch_updated_at
   before update on public.donation_requests
   for each row execute function public.set_updated_at();
 
+-- ------------------------------------------------------------
+-- 11.2 DONOR ACCEPTANCES (donor accepts a request; a doctor from the
+-- request's hospital is assigned to the transaction as the witness)
+-- v6.5: moved BEFORE the donation_requests policies — those policies
+-- reference donor_acceptances, which did not exist yet at that point in
+-- a fresh-database run ("relation does not exist").
+-- ------------------------------------------------------------
+create table if not exists public.donor_acceptances (
+  id uuid primary key default gen_random_uuid(),
+  request_id uuid not null references public.donation_requests(id) on delete cascade,
+  donor_id uuid not null references public.profiles(id) on delete cascade,
+  doctor_id uuid references public.profiles(id),
+  status text not null default 'accepted' check (status in ('accepted', 'withdrawn', 'completed')),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (request_id, donor_id)
+);
+
+alter table public.donor_acceptances enable row level security;
+
+-- v6.5: guard so the schema can be safely re-run.
+drop policy if exists "acceptances_select_authenticated" on public.donor_acceptances;
+create policy "acceptances_select_authenticated"
+  on public.donor_acceptances for select to authenticated
+  using (true);
+
+-- v6.5: guard so the schema can be safely re-run.
+drop policy if exists "acceptances_insert_own_donor" on public.donor_acceptances;
+create policy "acceptances_insert_own_donor"
+  on public.donor_acceptances for insert to authenticated
+  with check (donor_id = auth.uid());
+
+-- v6.5: guard so the schema can be safely re-run.
+drop policy if exists "acceptances_update_own_donor" on public.donor_acceptances;
+create policy "acceptances_update_own_donor"
+  on public.donor_acceptances for update to authenticated
+  using (donor_id = auth.uid() or public.is_admin())
+  with check (donor_id = auth.uid() or public.is_admin());
+-- No DELETE policy: acceptances are a record.
+
+drop trigger if exists touch_updated_at on public.donor_acceptances;
+create trigger touch_updated_at
+  before update on public.donor_acceptances
+  for each row execute function public.set_updated_at();
+
+-- The assigned doctor must be in the request's hospital doctor set; the
+-- donor must be blood-type compatible; the first acceptance moves the
+-- request to 'accepted'.
+create or replace function public.guard_acceptance()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_request record;
+  v_donor_blood text;
+  v_count integer;
+begin
+  select * into v_request from public.donation_requests where id = new.request_id;
+  if v_request.id is null then
+    raise exception 'Request not found.';
+  end if;
+  if v_request.status not in ('pending', 'accepted') then
+    raise exception 'This request is no longer accepting donors.';
+  end if;
+  if v_request.requester_id = new.donor_id then
+    raise exception 'You cannot accept your own request.';
+  end if;
+
+  select blood_type into v_donor_blood from public.profiles where id = new.donor_id;
+  if v_donor_blood is not null and not (
+    v_donor_blood = any (array['O-']) and v_request.blood_type = any (array['O-','O+','A-','A+','B-','B+','AB-','AB+'])
+    or v_donor_blood = 'O+' and v_request.blood_type = any (array['O+','A+','B+','AB+'])
+    or v_donor_blood = 'A-' and v_request.blood_type = any (array['A-','A+','AB-','AB+'])
+    or v_donor_blood = 'A+' and v_request.blood_type = any (array['A+','AB+'])
+    or v_donor_blood = 'B-' and v_request.blood_type = any (array['B-','B+','AB-','AB+'])
+    or v_donor_blood = 'B+' and v_request.blood_type = any (array['B+','AB+'])
+    or v_donor_blood = 'AB-' and v_request.blood_type = any (array['AB-','AB+'])
+    or v_donor_blood = 'AB+' and v_request.blood_type = 'AB+'
+  ) then
+    raise exception 'Your blood type (%) cannot donate to this request (%).', v_donor_blood, v_request.blood_type;
+  end if;
+
+  -- The assigned doctor must belong to the request's hospital.
+  if new.doctor_id is not null then
+    if v_request.hospital_id is null then
+      raise exception 'This request has no hospital, so no doctor can be assigned.';
+    end if;
+    if not exists (
+      select 1 from public.hospital_doctors hd
+      where hd.hospital_id = v_request.hospital_id
+        and hd.doctor_id = new.doctor_id
+        and hd.status = 'accepted'
+    ) and not exists (
+      select 1 from public.hospitals h
+        join public.profiles p on p.id = h.admin_id
+      where h.id = v_request.hospital_id
+        and p.id = new.doctor_id
+        and (p.role = 'doctor' or p.is_doctor)
+    ) then
+      raise exception 'The selected doctor is not part of the hospital on this request.';
+    end if;
+  end if;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists acceptance_guard on public.donor_acceptances;
+create trigger acceptance_guard
+  before insert or update on public.donor_acceptances
+  for each row execute function public.guard_acceptance();
+
+create or replace function public.on_acceptance_created()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_doctor text;
+  v_hospital record;
+  v_requester text;
+begin
+  -- The first acceptance moves the request to 'accepted'.
+  update public.donation_requests
+    set status = 'accepted', updated_at = now()
+    where id = new.request_id and status = 'pending';
+
+  select full_name into v_doctor from public.profiles where id = new.doctor_id;
+  select full_name into v_requester from public.profiles where id = (select requester_id from public.donation_requests where id = new.request_id);
+  select * into v_hospital from public.hospitals where id = (select hospital_id from public.donation_requests where id = new.request_id);
+
+  insert into public.activity_logs (actor_id, action, entity, entity_id, details)
+  values (new.donor_id, 'acceptance.created', 'donor_acceptances', new.id,
+          'Donor accepted request ' || new.request_id ||
+          case when v_doctor is not null then ' — assigned doctor: ' || v_doctor else ' — no doctor assigned' end || '.');
+
+  -- v4 (client rule): the hospital is notified that a donor accepted.
+  if v_hospital.id is not null then
+    insert into public.hospital_notifications (hospital_id, type, title, body, request_id, actor_id)
+    values (v_hospital.id, 'donor_accepted', 'A donor accepted a request at your hospital',
+            (select full_name from public.profiles where id = new.donor_id) || ' accepted the request of ' ||
+            coalesce(v_requester, 'a requester') ||
+            case when v_doctor is not null then ' — assigned doctor: ' || v_doctor else '' end || '.',
+            new.request_id, new.donor_id);
+  end if;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists acceptance_created on public.donor_acceptances;
+create trigger acceptance_created
+  after insert on public.donor_acceptances
+  for each row execute function public.on_acceptance_created();
+
 -- Visibility rule: all authenticated users can browse all requests.
+-- v6.5: guard so the schema can be safely re-run.
+drop policy if exists "requests_select_authenticated" on public.donation_requests;
 create policy "requests_select_authenticated"
   on public.donation_requests for select to authenticated
   using (true);
 
 -- Users create requests only as themselves.
+-- v6.5: guard so the schema can be safely re-run.
+drop policy if exists "requests_insert_own" on public.donation_requests;
 create policy "requests_insert_own"
   on public.donation_requests for insert to authenticated
   with check (requester_id = auth.uid());
@@ -392,6 +568,8 @@ create policy "requests_insert_own"
 -- Requester can edit own row; admin can correct any row; v4: the
 -- hospital's business admin and the assigned doctor (witness) may
 -- update status too (the guard trigger decides WHICH changes apply).
+-- v6.5: guard so the schema can be safely re-run.
+drop policy if exists "requests_update_own_or_admin" on public.donation_requests;
 create policy "requests_update_own_or_admin"
   on public.donation_requests for update to authenticated
   using (
@@ -525,6 +703,8 @@ alter table public.donation_records add column if not exists doctor_id uuid refe
 
 alter table public.donation_records enable row level security;
 
+-- v6.5: guard so the schema can be safely re-run.
+drop policy if exists "records_select_admin_or_involved" on public.donation_records;
 create policy "records_select_admin_or_involved"
   on public.donation_records for select to authenticated
   using (
@@ -544,6 +724,8 @@ create policy "records_select_admin_or_involved"
 
 -- v4: insert — platform admin, the request hospital's business admin, or a
 -- doctor assigned to the request (the witness / source of truth).
+-- v6.5: guard so the schema can be safely re-run.
+drop policy if exists "records_insert_authorized" on public.donation_records;
 create policy "records_insert_authorized"
   on public.donation_records for insert to authenticated
   with check (
@@ -634,6 +816,8 @@ create table if not exists public.messages (
 alter table public.messages enable row level security;
 
 -- Conversations are visible only to their participants.
+-- v6.5: guard so the schema can be safely re-run.
+drop policy if exists "conversations_select_participants" on public.conversations;
 create policy "conversations_select_participants"
   on public.conversations for select to authenticated
   using (
@@ -751,6 +935,8 @@ $$;
 grant execute on function public.start_hospital_conversation(uuid) to authenticated;
 
 -- Only participants may read the messages of a conversation.
+-- v6.5: guard so the schema can be safely re-run.
+drop policy if exists "messages_select_participants" on public.messages;
 create policy "messages_select_participants"
   on public.messages for select to authenticated
   using (
@@ -761,6 +947,8 @@ create policy "messages_select_participants"
   );
 
 -- Only a participant can send, and only in their own name.
+-- v6.5: guard so the schema can be safely re-run.
+drop policy if exists "messages_insert_participant" on public.messages;
 create policy "messages_insert_participant"
   on public.messages for insert to authenticated
   with check (
@@ -773,7 +961,18 @@ create policy "messages_insert_participant"
 -- No UPDATE / DELETE policies: chat history is immutable.
 
 -- Supabase Realtime: new messages stream to signed-in participants.
-alter publication supabase_realtime add table public.messages;
+-- v6.5: guarded — the publication exists on the Supabase platform by
+-- default; on a vanilla database (or a re-run after it was already added)
+-- the unguarded ALTER would raise "publication does not exist".
+do $$
+begin
+  if exists (select 1 from pg_publication where pubname = 'supabase_realtime') then
+    begin
+      alter publication supabase_realtime add table public.messages;
+    exception when duplicate_object then null; -- already a member
+    end;
+  end if;
+end $$;
 
 -- ============================================================
 -- 6. MATCHING (preliminary filtering, executed server-side)
@@ -849,6 +1048,8 @@ create table if not exists public.activity_logs (
 
 alter table public.activity_logs enable row level security;
 
+-- v6.5: guard so the schema can be safely re-run.
+drop policy if exists "logs_select_admin" on public.activity_logs;
 create policy "logs_select_admin"
   on public.activity_logs for select to authenticated
   using (public.is_admin());
@@ -888,7 +1089,8 @@ create index if not exists idx_messages_conversation on public.messages(conversa
 create index if not exists idx_participants_user on public.conversation_participants(user_id);
 create index if not exists idx_hospitals_status on public.hospitals(status);
 create index if not exists idx_logs_created on public.activity_logs(created_at desc);
-create index if not exists idx_offers_status on public.donation_offers(status);
+-- v6.5: idx_offers_status moved to section 10.1 — donation_offers is
+-- created there, so indexing it here failed on a fresh database.
 
 -- ============================================================
 -- 9. HEMAMATCH PHASE 2 EXTENSIONS
@@ -906,6 +1108,8 @@ create index if not exists idx_offers_status on public.donation_offers(status);
 
 -- 9.1 Participants may read membership rows of their own conversations
 --     (needed to render "who is the other participant" in the UI).
+-- v6.5: guard so the schema can be safely re-run.
+drop policy if exists "participants_select_participant" on public.conversation_participants;
 create policy "participants_select_participant"
   on public.conversation_participants for select to authenticated
   using (
@@ -1220,16 +1424,26 @@ create table if not exists public.donation_offers (
 
 alter table public.donation_offers enable row level security;
 
+-- v6.5: moved here from section 8 — the table is created above, so the
+-- index belongs with it (a fresh-database run failed on the old spot).
+create index if not exists idx_offers_status on public.donation_offers(status);
+
 -- Donor directory: signed-in users may browse open listings.
+-- v6.5: guard so the schema can be safely re-run.
+drop policy if exists "offers_select_authenticated" on public.donation_offers;
 create policy "offers_select_authenticated"
   on public.donation_offers for select to authenticated
   using (true);
 
 -- Donors manage only their own listing.
+-- v6.5: guard so the schema can be safely re-run.
+drop policy if exists "offers_insert_own" on public.donation_offers;
 create policy "offers_insert_own"
   on public.donation_offers for insert to authenticated
   with check (donor_id = auth.uid());
 
+-- v6.5: guard so the schema can be safely re-run.
+drop policy if exists "offers_update_own" on public.donation_offers;
 create policy "offers_update_own"
   on public.donation_offers for update to authenticated
   using (donor_id = auth.uid())
@@ -1448,6 +1662,8 @@ alter table public.hospital_doctors enable row level security;
 
 -- The roster of a hospital is public (the directory shows doctors with
 -- their license ID and contact number — client rule).
+-- v6.5: guard so the schema can be safely re-run.
+drop policy if exists "hospital_doctors_select_authenticated" on public.hospital_doctors;
 create policy "hospital_doctors_select_authenticated"
   on public.hospital_doctors for select to authenticated
   using (
@@ -1461,6 +1677,8 @@ create policy "hospital_doctors_select_authenticated"
   );
 
 -- Doctors apply (or re-apply after a rejection) only in their own name.
+-- v6.5: guard so the schema can be safely re-run.
+drop policy if exists "hospital_doctors_insert_own" on public.hospital_doctors;
 create policy "hospital_doctors_insert_own"
   on public.hospital_doctors for insert to authenticated
   with check (
@@ -1469,6 +1687,8 @@ create policy "hospital_doctors_insert_own"
   );
 
 -- Status is reviewed by the hospital's admin (or a platform admin).
+-- v6.5: guard so the schema can be safely re-run.
+drop policy if exists "hospital_doctors_update_admins" on public.hospital_doctors;
 create policy "hospital_doctors_update_admins"
   on public.hospital_doctors for update to authenticated
   using (
@@ -1559,155 +1779,6 @@ create trigger doctor_application_logged
   for each row execute function public.log_doctor_application();
 
 -- ------------------------------------------------------------
--- 11.2 DONOR ACCEPTANCES (donor accepts a request; a doctor from the
--- request's hospital is assigned to the transaction as the witness)
--- ------------------------------------------------------------
-create table if not exists public.donor_acceptances (
-  id uuid primary key default gen_random_uuid(),
-  request_id uuid not null references public.donation_requests(id) on delete cascade,
-  donor_id uuid not null references public.profiles(id) on delete cascade,
-  doctor_id uuid references public.profiles(id),
-  status text not null default 'accepted' check (status in ('accepted', 'withdrawn', 'completed')),
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now(),
-  unique (request_id, donor_id)
-);
-
-alter table public.donor_acceptances enable row level security;
-
-create policy "acceptances_select_authenticated"
-  on public.donor_acceptances for select to authenticated
-  using (true);
-
-create policy "acceptances_insert_own_donor"
-  on public.donor_acceptances for insert to authenticated
-  with check (donor_id = auth.uid());
-
-create policy "acceptances_update_own_donor"
-  on public.donor_acceptances for update to authenticated
-  using (donor_id = auth.uid() or public.is_admin())
-  with check (donor_id = auth.uid() or public.is_admin());
--- No DELETE policy: acceptances are a record.
-
-drop trigger if exists touch_updated_at on public.donor_acceptances;
-create trigger touch_updated_at
-  before update on public.donor_acceptances
-  for each row execute function public.set_updated_at();
-
--- The assigned doctor must be in the request's hospital doctor set; the
--- donor must be blood-type compatible; the first acceptance moves the
--- request to 'accepted'.
-create or replace function public.guard_acceptance()
-returns trigger
-language plpgsql
-security definer
-set search_path = public
-as $$
-declare
-  v_request record;
-  v_donor_blood text;
-  v_count integer;
-begin
-  select * into v_request from public.donation_requests where id = new.request_id;
-  if v_request.id is null then
-    raise exception 'Request not found.';
-  end if;
-  if v_request.status not in ('pending', 'accepted') then
-    raise exception 'This request is no longer accepting donors.';
-  end if;
-  if v_request.requester_id = new.donor_id then
-    raise exception 'You cannot accept your own request.';
-  end if;
-
-  select blood_type into v_donor_blood from public.profiles where id = new.donor_id;
-  if v_donor_blood is not null and not (
-    v_donor_blood = any (array['O-']) and v_request.blood_type = any (array['O-','O+','A-','A+','B-','B+','AB-','AB+'])
-    or v_donor_blood = 'O+' and v_request.blood_type = any (array['O+','A+','B+','AB+'])
-    or v_donor_blood = 'A-' and v_request.blood_type = any (array['A-','A+','AB-','AB+'])
-    or v_donor_blood = 'A+' and v_request.blood_type = any (array['A+','AB+'])
-    or v_donor_blood = 'B-' and v_request.blood_type = any (array['B-','B+','AB-','AB+'])
-    or v_donor_blood = 'B+' and v_request.blood_type = any (array['B+','AB+'])
-    or v_donor_blood = 'AB-' and v_request.blood_type = any (array['AB-','AB+'])
-    or v_donor_blood = 'AB+' and v_request.blood_type = 'AB+'
-  ) then
-    raise exception 'Your blood type (%) cannot donate to this request (%).', v_donor_blood, v_request.blood_type;
-  end if;
-
-  -- The assigned doctor must belong to the request's hospital.
-  if new.doctor_id is not null then
-    if v_request.hospital_id is null then
-      raise exception 'This request has no hospital, so no doctor can be assigned.';
-    end if;
-    if not exists (
-      select 1 from public.hospital_doctors hd
-      where hd.hospital_id = v_request.hospital_id
-        and hd.doctor_id = new.doctor_id
-        and hd.status = 'accepted'
-    ) and not exists (
-      select 1 from public.hospitals h
-        join public.profiles p on p.id = h.admin_id
-      where h.id = v_request.hospital_id
-        and p.id = new.doctor_id
-        and (p.role = 'doctor' or p.is_doctor)
-    ) then
-      raise exception 'The selected doctor is not part of the hospital on this request.';
-    end if;
-  end if;
-
-  return new;
-end;
-$$;
-
-drop trigger if exists acceptance_guard on public.donor_acceptances;
-create trigger acceptance_guard
-  before insert or update on public.donor_acceptances
-  for each row execute function public.guard_acceptance();
-
-create or replace function public.on_acceptance_created()
-returns trigger
-language plpgsql
-security definer
-set search_path = public
-as $$
-declare
-  v_doctor text;
-  v_hospital record;
-  v_requester text;
-begin
-  -- The first acceptance moves the request to 'accepted'.
-  update public.donation_requests
-    set status = 'accepted', updated_at = now()
-    where id = new.request_id and status = 'pending';
-
-  select full_name into v_doctor from public.profiles where id = new.doctor_id;
-  select full_name into v_requester from public.profiles where id = (select requester_id from public.donation_requests where id = new.request_id);
-  select * into v_hospital from public.hospitals where id = (select hospital_id from public.donation_requests where id = new.request_id);
-
-  insert into public.activity_logs (actor_id, action, entity, entity_id, details)
-  values (new.donor_id, 'acceptance.created', 'donor_acceptances', new.id,
-          'Donor accepted request ' || new.request_id ||
-          case when v_doctor is not null then ' — assigned doctor: ' || v_doctor else ' — no doctor assigned' end || '.');
-
-  -- v4 (client rule): the hospital is notified that a donor accepted.
-  if v_hospital.id is not null then
-    insert into public.hospital_notifications (hospital_id, type, title, body, request_id, actor_id)
-    values (v_hospital.id, 'donor_accepted', 'A donor accepted a request at your hospital',
-            (select full_name from public.profiles where id = new.donor_id) || ' accepted the request of ' ||
-            coalesce(v_requester, 'a requester') ||
-            case when v_doctor is not null then ' — assigned doctor: ' || v_doctor else '' end || '.',
-            new.request_id, new.donor_id);
-  end if;
-
-  return new;
-end;
-$$;
-
-drop trigger if exists acceptance_created on public.donor_acceptances;
-create trigger acceptance_created
-  after insert on public.donor_acceptances
-  for each row execute function public.on_acceptance_created();
-
--- ------------------------------------------------------------
 -- 11.3 HOSPITAL NOTIFICATIONS (the business admin's inbox)
 -- Written by triggers/RPCs only; the hospital admin reads + marks read.
 -- ------------------------------------------------------------
@@ -1725,6 +1796,8 @@ create table if not exists public.hospital_notifications (
 
 alter table public.hospital_notifications enable row level security;
 
+-- v6.5: guard so the schema can be safely re-run.
+drop policy if exists "notifications_select_hospital_admin" on public.hospital_notifications;
 create policy "notifications_select_hospital_admin"
   on public.hospital_notifications for select to authenticated
   using (
@@ -1735,6 +1808,8 @@ create policy "notifications_select_hospital_admin"
     )
   );
 
+-- v6.5: guard so the schema can be safely re-run.
+drop policy if exists "notifications_update_hospital_admin" on public.hospital_notifications;
 create policy "notifications_update_hospital_admin"
   on public.hospital_notifications for update to authenticated
   using (
